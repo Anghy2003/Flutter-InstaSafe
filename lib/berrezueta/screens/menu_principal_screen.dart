@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
 import '../widgets/tarjeta_boton_menu_principal.dart';
-import '../widgets/degradado_fondo_screen.dart'; // Importa el fondo
+import '../widgets/degradado_fondo_screen.dart';
 
 class MenuPrincipalScreen extends StatelessWidget {
   final String nombreUsuario = 'Angie';
@@ -19,6 +20,37 @@ class MenuPrincipalScreen extends StatelessWidget {
     final alto = MediaQuery.of(context).size.height;
     final tamanoTextoSaludo = ancho * 0.06;
     final tamanoTextoFecha = ancho * 0.035;
+
+    final tarjetas = [
+      TarjetaBotonMenuPrincipal(
+        icono: Icons.qr_code_scanner,
+        titulo: 'Escanear QR',
+        onPressed: () => context.push('/escaneo'),
+      ),
+      TarjetaBotonMenuPrincipal(
+        icono: Icons.person,
+        titulo: 'Mi Perfil',
+        onPressed: () => context.push('/perfil'),
+      ),
+      TarjetaBotonMenuPrincipal(
+        icono: Icons.history,
+        titulo: 'Historial',
+        onPressed: () => context.push('/historial'),
+      ),
+      TarjetaBotonMenuPrincipal(
+        icono: Icons.person_add_alt,
+        titulo: 'Registrar Usuario',
+        onPressed: () => context.push('/registro'),
+      ),
+      TarjetaBotonMenuPrincipal(
+        icono: Icons.logout,
+        titulo: 'Cerrar Sesion',
+        onPressed: () => context.go('/'),
+      ),
+    ];
+
+    final double espacio = 16;
+    final double anchoTarjeta = (ancho - espacio * 3) / 2;
 
     return DegradadoFondoScreen(
       child: Scaffold(
@@ -60,37 +92,12 @@ class MenuPrincipalScreen extends StatelessWidget {
                 Expanded(
                   child: SingleChildScrollView(
                     child: Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
+                      spacing: espacio,
+                      runSpacing: espacio,
                       alignment: WrapAlignment.center,
-                      children: [
-                        TarjetaBotonMenuPrincipal(
-                          icono: Icons.qr_code_scanner,
-                          titulo: 'Escanear QR',
-                          onPressed: () => context.push('/escaneo'),
-                        ),
-                        TarjetaBotonMenuPrincipal(
-                          icono: Icons.person,
-                          titulo: 'Mi Perfil',
-                          onPressed: () => context.push('/perfil'),
-                        ),
-
-                        TarjetaBotonMenuPrincipal(
-                          icono: Icons.history,
-                          titulo: 'Historial',
-                          onPressed: () => context.push('/historial'),
-                        ),
-                        TarjetaBotonMenuPrincipal(
-                          icono: Icons.person_add_alt,
-                          titulo: 'Registrar Usuario',
-                          onPressed: () => context.push('/registro'),
-                        ),
-                        TarjetaBotonMenuPrincipal(
-                          icono: Icons.logout,
-                          titulo: 'Cerrar Sesion',
-                          onPressed: () => context.go('/'),
-                        ),
-                      ],
+                      children: tarjetas
+                          .map((t) => SizedBox(width: anchoTarjeta, child: t))
+                          .toList(),
                     ),
                   ),
                 ),
@@ -121,21 +128,4 @@ class MenuPrincipalScreen extends StatelessWidget {
       ),
     );
   }
-
-  // void _mostrarDialogo(BuildContext context, String titulo) {
-  //   showDialog(
-  //     context: context,
-  //     builder:
-  //         (_) => AlertDialog(
-  //           title: Text(titulo),
-  //           content: Text('Aquí irá la funcionalidad de "$titulo".'),
-  //           actions: [
-  //             TextButton(
-  //               onPressed: () => Navigator.pop(context),
-  //               child: const Text('Cerrar'),
-  //             ),
-  //           ],
-  //         ),
-  //   );
-  // }
 }
