@@ -37,7 +37,7 @@ class MenuPrincipalScreen extends StatelessWidget {
                 ),
                 SizedBox(height: alto * 0.01),
                 Text(
-                  'Hola, $nombreUsuario',
+                  '¡Hola, $nombreUsuario!',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
