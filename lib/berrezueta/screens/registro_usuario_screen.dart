@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:instasafe/berrezueta/widgets/menu_lateral_drawer_widget.dart';
+import 'package:instasafe/berrezueta/widgets/registro/enviar_datos_registro_usuario.dart';
 import 'package:instasafe/berrezueta/widgets/registro/icono_camara_registro.dart';
 import 'package:instasafe/berrezueta/widgets/registro/estilo_input_registro.dart';
 import 'package:instasafe/berrezueta/widgets/registro/validaciones_registro.dart';
@@ -22,6 +24,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
+  File? imagenSeleccionada;
   bool formularioValido = false;
   bool imagenSubida = false;
 
@@ -30,18 +33,18 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
         nombreController.text.isNotEmpty &&
         telefonoController.text.isNotEmpty &&
         emailController.text.isNotEmpty &&
-        passwordController.text.isNotEmpty;
+        passwordController.text.isNotEmpty &&
+        imagenSeleccionada != null;
 
-    final camposValidos = ValidacionesRegistro.validarCedula(cedulaController.text) == null &&
+    final camposValidos =
+        ValidacionesRegistro.validarCedula(cedulaController.text) == null &&
         ValidacionesRegistro.validarNombre(nombreController.text) == null &&
         ValidacionesRegistro.validarTelefono(telefonoController.text) == null &&
         ValidacionesRegistro.validarEmail(emailController.text) == null &&
         ValidacionesRegistro.validarPassword(passwordController.text) == null;
 
-    final completo = inputsLlenos && camposValidos && imagenSubida;
-
     setState(() {
-      formularioValido = completo;
+      formularioValido = inputsLlenos && camposValidos && imagenSubida;
     });
   }
 
@@ -93,22 +96,38 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
     super.dispose();
   }
 
-  void registrarUsuario() {
-    FocusScope.of(context).unfocus(); // 👈 ocultar teclado
-    if (formKey.currentState!.validate()) {
-      print('Cédula: ${cedulaController.text}');
-      print('Nombre: ${nombreController.text}');
-      print('Teléfono: ${telefonoController.text}');
-      print('Email: ${emailController.text}');
-      print('Contraseña: ${passwordController.text}');
-      // lógica de registro
-    }
-  }
-
-  void manejarCambioFoto(bool nuevaFoto) {
-    imagenSubida = nuevaFoto;
+  void manejarCambioFoto(bool esValida, File? archivo) {
+    imagenSubida = esValida;
+    imagenSeleccionada = archivo;
     verificarEstadoFormulario();
   }
+
+  void registrarUsuario() async {
+  FocusScope.of(context).unfocus();
+
+  if (formKey.currentState!.validate() && imagenSeleccionada != null) {
+    final resultado = await enviarDatosRegistroUsuario(
+      cedula: cedulaController.text,
+      nombre: nombreController.text,
+      apellido: 'SinApellido',
+      correo: emailController.text,
+      genero: 'SinGenero',
+      idResponsable: 1,
+      fechaNacimiento: DateTime(2000, 1, 1),
+      contrasena: passwordController.text,
+      idRol: 1,
+      imagen: imagenSeleccionada!,
+    );
+
+    final mensaje = resultado.startsWith('ok')
+        ? '✅ Usuario registrado con éxito'
+        : resultado;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje)),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +147,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
           ),
         ),
         body: GestureDetector(
-          onTap: () => FocusScope.of(context).unfocus(), // 👈 cerrar teclado al hacer clic fuera
+          onTap: () => FocusScope.of(context).unfocus(),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Form(

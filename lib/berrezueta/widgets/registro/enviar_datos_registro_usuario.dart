@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
-Future<bool> enviarDatosRegistroUsuario({
+Future<String> enviarDatosRegistroUsuario({
   required String cedula,
   required String nombre,
   required String apellido,
@@ -15,11 +15,9 @@ Future<bool> enviarDatosRegistroUsuario({
   required File imagen,
 }) async {
   try {
-    final uri = Uri.parse('https://tuservidor.com/api/usuarios'); // 🔁 Reemplaza con tu URL real
-
+    final uri = Uri.parse('http://192.168.56.48:8090/api/usuarios');
     final request = http.MultipartRequest('POST', uri);
 
-    // Campos de texto
     request.fields['cedula'] = cedula;
     request.fields['nombre'] = nombre;
     request.fields['apellido'] = apellido;
@@ -30,7 +28,6 @@ Future<bool> enviarDatosRegistroUsuario({
     request.fields['contrasena'] = contrasena;
     request.fields['id_rol'] = idRol.toString();
 
-    // Imagen como byte array para biometrico
     final bytes = await imagen.readAsBytes();
     request.files.add(http.MultipartFile.fromBytes(
       'biometrico',
@@ -39,19 +36,15 @@ Future<bool> enviarDatosRegistroUsuario({
       contentType: MediaType('image', 'jpeg'),
     ));
 
-    // Enviar la solicitud
     final response = await request.send();
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      print('✅ Registro exitoso');
-      return true;
+      return 'ok';
     } else {
       final error = await response.stream.bytesToString();
-      print('❌ Error al registrar usuario: $error');
-      return false;
+      return 'Servidor respondió con error: $error';
     }
   } catch (e) {
-    print('⚠️ Excepción: $e');
-    return false;
+    return 'Excepción de conexión: $e';
   }
 }

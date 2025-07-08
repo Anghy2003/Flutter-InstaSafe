@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 class IconoCamaraRegistro extends StatefulWidget {
-  final void Function(bool)? onFotoCambiada;
+  final void Function(bool, File?)? onFotoCambiada;
 
   const IconoCamaraRegistro({super.key, this.onFotoCambiada});
 
@@ -52,13 +52,13 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
         _imagenSeleccionada = archivo;
         _verificando = false;
       });
-      widget.onFotoCambiada?.call(true);
+      widget.onFotoCambiada?.call(true, archivo);
     } else {
       setState(() {
         _verificando = false;
         _imagenSeleccionada = null;
       });
-      widget.onFotoCambiada?.call(false);
+      widget.onFotoCambiada?.call(false, null);
       _mostrarDialogoError(resultado);
     }
   }
