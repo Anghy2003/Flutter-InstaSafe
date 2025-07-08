@@ -1,9 +1,114 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:instasafe/berrezueta/widgets/menu_lateral_drawer_widget.dart';
+import 'package:instasafe/berrezueta/widgets/registro/icono_camara_registro.dart';
+import 'package:instasafe/berrezueta/widgets/registro/estilo_input_registro.dart';
+import 'package:instasafe/berrezueta/widgets/registro/validaciones_registro.dart';
 import '../widgets/degradado_fondo_screen.dart';
 
-class RegistroUsuarioScreen extends StatelessWidget {
+class RegistroUsuarioScreen extends StatefulWidget {
   const RegistroUsuarioScreen({super.key});
+
+  @override
+  State<RegistroUsuarioScreen> createState() => _RegistroUsuarioScreenState();
+}
+
+class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
+  final formKey = GlobalKey<FormState>();
+
+  final cedulaController = TextEditingController();
+  final nombreController = TextEditingController();
+  final telefonoController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  bool formularioValido = false;
+  bool imagenSubida = false;
+
+  void verificarEstadoFormulario() {
+    final inputsLlenos = cedulaController.text.isNotEmpty &&
+        nombreController.text.isNotEmpty &&
+        telefonoController.text.isNotEmpty &&
+        emailController.text.isNotEmpty &&
+        passwordController.text.isNotEmpty;
+
+    final camposValidos = ValidacionesRegistro.validarCedula(cedulaController.text) == null &&
+        ValidacionesRegistro.validarNombre(nombreController.text) == null &&
+        ValidacionesRegistro.validarTelefono(telefonoController.text) == null &&
+        ValidacionesRegistro.validarEmail(emailController.text) == null &&
+        ValidacionesRegistro.validarPassword(passwordController.text) == null;
+
+    final completo = inputsLlenos && camposValidos && imagenSubida;
+
+    setState(() {
+      formularioValido = completo;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    cedulaController.addListener(() {
+      final texto = cedulaController.text;
+      final limpio = texto.replaceAll(RegExp(r'[^0-9]'), '');
+      if (texto != limpio) {
+        cedulaController.text = limpio;
+        cedulaController.selection = TextSelection.collapsed(offset: limpio.length);
+      }
+      verificarEstadoFormulario();
+    });
+
+    nombreController.addListener(() {
+      final texto = nombreController.text;
+      final limpio = texto.replaceAll(RegExp(r'[^a-zA-ZÁÉÍÓÚÑáéíóúñ\s]'), '');
+      if (texto != limpio) {
+        nombreController.text = limpio;
+        nombreController.selection = TextSelection.collapsed(offset: limpio.length);
+      }
+      verificarEstadoFormulario();
+    });
+
+    telefonoController.addListener(() {
+      final texto = telefonoController.text;
+      final limpio = texto.replaceAll(RegExp(r'[^0-9+]'), '');
+      if (texto != limpio) {
+        telefonoController.text = limpio;
+        telefonoController.selection = TextSelection.collapsed(offset: limpio.length);
+      }
+      verificarEstadoFormulario();
+    });
+
+    emailController.addListener(verificarEstadoFormulario);
+    passwordController.addListener(verificarEstadoFormulario);
+  }
+
+  @override
+  void dispose() {
+    cedulaController.dispose();
+    nombreController.dispose();
+    telefonoController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  void registrarUsuario() {
+    FocusScope.of(context).unfocus(); // 👈 ocultar teclado
+    if (formKey.currentState!.validate()) {
+      print('Cédula: ${cedulaController.text}');
+      print('Nombre: ${nombreController.text}');
+      print('Teléfono: ${telefonoController.text}');
+      print('Email: ${emailController.text}');
+      print('Contraseña: ${passwordController.text}');
+      // lógica de registro
+    }
+  }
+
+  void manejarCambioFoto(bool nuevaFoto) {
+    imagenSubida = nuevaFoto;
+    verificarEstadoFormulario();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,14 +127,91 @@ class RegistroUsuarioScreen extends StatelessWidget {
             style: TextStyle(color: Colors.white, fontSize: ancho * 0.05),
           ),
         ),
-        body: Center(
-          child: Text(
-            'Página de registro de usuario',
-            style: TextStyle(
-              fontSize: ancho * 0.06,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(), // 👈 cerrar teclado al hacer clic fuera
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: formKey,
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  IconoCamaraRegistro(
+                    onFotoCambiada: manejarCambioFoto,
+                  ),
+                  const SizedBox(height: 30),
+                  EstiloInputRegistro(
+                    etiqueta: 'Cédula',
+                    textoPlaceholder: '0123456789',
+                    icono: Icons.perm_identity,
+                    tipoCampo: 'cedula',
+                    controller: cedulaController,
+                  ),
+                  EstiloInputRegistro(
+                    etiqueta: 'Nombre',
+                    textoPlaceholder: 'Tanya Myroniuk',
+                    icono: Icons.person,
+                    tipoCampo: 'nombre',
+                    controller: nombreController,
+                  ),
+                  EstiloInputRegistro(
+                    etiqueta: 'Teléfono',
+                    textoPlaceholder: '+593...',
+                    icono: Icons.phone,
+                    tipoCampo: 'telefono',
+                    controller: telefonoController,
+                  ),
+                  EstiloInputRegistro(
+                    etiqueta: 'Email',
+                    textoPlaceholder: 'correo@ejemplo.com',
+                    icono: Icons.email,
+                    tipoCampo: 'email',
+                    controller: emailController,
+                  ),
+                  EstiloInputRegistro(
+                    etiqueta: 'Contraseña',
+                    textoPlaceholder: '********',
+                    icono: Icons.lock,
+                    tipoCampo: 'contraseña',
+                    esPassword: true,
+                    controller: passwordController,
+                  ),
+                  const SizedBox(height: 30),
+                  _RegistrarButton(
+                    onPressed: formularioValido ? registrarUsuario : null,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('©IstaSafe', style: TextStyle(color: Colors.white70)),
+                ],
+              ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RegistrarButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+
+  const _RegistrarButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: onPressed != null ? Colors.blueAccent : Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+        ),
+        child: const Text(
+          'Registrar',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),

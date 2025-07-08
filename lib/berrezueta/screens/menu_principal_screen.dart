@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../widgets/tarjeta_boton_menu_principal.dart';
+import '../widgets/menuPrincipal/tarjeta_boton_menu_principal.dart';
 import '../widgets/degradado_fondo_screen.dart';
 
 class MenuPrincipalScreen extends StatelessWidget {

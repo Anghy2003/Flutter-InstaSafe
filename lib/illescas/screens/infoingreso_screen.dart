@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
-import 'package:instasafe/berrezueta/widgets/drawer_widget.dart';
+import 'package:instasafe/berrezueta/widgets/menu_lateral_drawer_widget.dart';
 
 class InfoingresoScreen extends StatelessWidget {
   const InfoingresoScreen({super.key});

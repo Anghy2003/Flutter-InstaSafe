@@ -19,7 +19,7 @@ class _DegradadoFondoScreenState extends State<DegradadoFondoScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3), // ⚡️ aquí ajustas la velocidad
+      duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
 
     _intensidad = Tween<double>(begin: 0.3, end: 1.0).animate(
@@ -38,20 +38,28 @@ class _DegradadoFondoScreenState extends State<DegradadoFondoScreen>
     return AnimatedBuilder(
       animation: _intensidad,
       builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment.center,
-              radius: 1.2,
-              colors: [
-                Color(0xFF07294D).withOpacity(_intensidad.value),
-                const Color.fromARGB(255, 20, 20, 31),
-              ],
-            ),
+        return ColoredBox( // ✅ Esto evita el parpadeo blanco inicial
+          color: const Color(0xFF1A1A2E),
+          child: Container(
+            decoration: RadialGradientBox(_intensidad.value),
+            child: widget.child,
           ),
-          child: widget.child,
         );
       },
+    );
+  }
+
+  // ✅ Extraído para mantener código limpio
+  BoxDecoration RadialGradientBox(double intensidad) {
+    return BoxDecoration(
+      gradient: RadialGradient(
+        center: Alignment.center,
+        radius: 1.2,
+        colors: [
+          Color(0xFF07294D).withOpacity(intensidad),
+          const Color.fromARGB(255, 20, 20, 31),
+        ],
+      ),
     );
   }
 }

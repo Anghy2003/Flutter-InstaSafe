@@ -1,25 +1,113 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+final _router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const MyHomePage(),
+    ),
+    GoRoute(
+      path: '/historial',
+      builder: (context, state) => const SimplePage(title: 'Historial'),
+    ),
+    GoRoute(
+      path: '/perfil',
+      builder: (context, state) => const SimplePage(title: 'Perfil'),
+    ),
+    GoRoute(
+      path: '/escaneo',
+      builder: (context, state) => const SimplePage(title: 'Escanear QR'),
+    ),
+    GoRoute(
+      path: '/registro',
+      builder: (context, state) => const SimplePage(title: 'Registrar Usuario'),
+    ),
+  ],
+);
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      theme: ThemeData(
+        scaffoldBackgroundColor: const Color(0xFF1A1A2E),
+        brightness: Brightness.dark,
+      ),
+      routerConfig: _router,
+    );
+  }
+}
+
+class MyHomePage extends StatelessWidget {
+  const MyHomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1A2E),
+      drawer: const DrawerMenuLateral(),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF07294D),
+        title: const Text('Inicio'),
+      ),
+      body: const Center(
+        child: Text(
+          'Bienvenido',
+          style: TextStyle(color: Colors.white, fontSize: 24),
+        ),
+      ),
+    );
+  }
+}
+
+class SimplePage extends StatelessWidget {
+  final String title;
+  const SimplePage({required this.title, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1A2E),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF07294D),
+        title: Text(title),
+      ),
+      drawer: const DrawerMenuLateral(),
+      body: Center(
+        child: Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontSize: 24),
+        ),
+      ),
+    );
+  }
+}
 
 class DrawerMenuLateral extends StatelessWidget {
   const DrawerMenuLateral({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final estilo = TextStyle(color: Colors.white, fontSize: 16);
+    final estilo = const TextStyle(color: Colors.white, fontSize: 16);
 
     return Drawer(
       backgroundColor: const Color(0xFF1A1A2E),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(color: Color(0xFF07294D)),
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Color(0xFF07294D)),
             child: Center(
-              child: Text(
-                'Menú',
-                style: TextStyle(fontSize: 20, color: Colors.white),
-              ),
+              child: Text('Menú', style: TextStyle(fontSize: 20, color: Colors.white)),
             ),
           ),
           ListTile(

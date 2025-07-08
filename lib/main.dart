@@ -12,6 +12,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
+      theme: ThemeData(
+    scaffoldBackgroundColor: const Color(0xFF1A1A2E), // Azul oscuro por defecto
+    brightness: Brightness.dark,
+  ),
+
       debugShowCheckedModeBanner: false,
       title: 'Mi App',
       routerConfig: appRouter,
