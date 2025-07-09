@@ -15,7 +15,7 @@ class ValidacionesRegistro {
     if (tercerDigito > 6) return 'Formato incorrecto para cédula ecuatoriana';
 
     // Algoritmo de validación (módulo 10)
-    final coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+    final coeficientes = [2, 1 , 2, 1, 2, 1, 2, 1, 2];
     int suma = 0;
     for (int i = 0; i < coeficientes.length; i++) {
       int valor = coeficientes[i] * int.parse(cedula[i]);

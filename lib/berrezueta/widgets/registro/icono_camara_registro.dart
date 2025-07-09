@@ -181,7 +181,7 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
       children: [
         _contenedorImagen(),
         const SizedBox(height: 8),
-        _botonGaleria(),
+        
       ],
     );
   }

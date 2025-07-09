@@ -8,6 +8,7 @@ import 'package:instasafe/berrezueta/widgets/registro/funciones_registrar_usuari
 import 'package:instasafe/berrezueta/widgets/registro/icono_camara_registro.dart';
 import 'package:instasafe/berrezueta/widgets/registro/estilo_input_registro.dart';
 import 'package:instasafe/berrezueta/widgets/registro/validaciones_registro.dart';
+import 'package:instasafe/models/plantillafacial.dart';
 import '../widgets/degradado_fondo_screen.dart';
 
 class RegistroUsuarioScreen extends StatefulWidget {
@@ -35,6 +36,8 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   int? rolSeleccionado;
   bool ocultarPassword = true;
 
+  String? plantillaFacialCodificada; // ✅ NUEVO: para guardar la plantilla facial
+
   void verificarEstadoFormulario() {
     setState(() {
       formularioValido = validarFormularioCompleto(
@@ -55,7 +58,6 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   @override
   void initState() {
     super.initState();
-
     cedulaController.addListener(() {
       final texto = cedulaController.text;
       final limpio = texto.replaceAll(RegExp(r'[^0-9]'), '');
@@ -118,57 +120,54 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   }
 
   void registrarUsuario() async {
-  FocusScope.of(context).unfocus();
+    FocusScope.of(context).unfocus();
 
-  if (formKey.currentState!.validate() && imagenSeleccionada != null) {
-    final accessToken = UsuarioActual.accessToken;
-    final carpetaDriveId = UsuarioActual.carpetaDriveId;
+    if (formKey.currentState!.validate() && imagenSeleccionada != null) {
+      final accessToken = UsuarioActual.accessToken;
+      final carpetaDriveId = UsuarioActual.carpetaDriveId;
 
-    if (accessToken == null || carpetaDriveId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Falta iniciar sesión con Google')),
-      );
-      return;
-    }
-
-    // 🌀 Mostrar indicador de carga
-    showDialog(
-      context: context,
-      barrierDismissible: false, // no cerrar al tocar afuera
-      builder: (context) {
-        return const Center(
-          child: CircularProgressIndicator(color: Colors.teal),
+      if (accessToken == null || carpetaDriveId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ Falta iniciar sesión con Google')),
         );
-      },
-    );
+        return;
+      }
 
-    // 📤 Enviar datos mientras se muestra el indicador
-    final resultado = await enviarDatosRegistroUsuario(
-      cedula: cedulaController.text.trim(),
-      nombre: nombreController.text.trim(),
-      apellido: apellidoController.text.trim(),
-      correo: emailController.text.trim(),
-      genero: generoSeleccionado ?? 'SinGenero',
-      idResponsable: 1,
-      fechaNacimiento: fechaNacimiento ?? DateTime(2000, 1, 1),
-      contrasena: passwordController.text.trim(),
-      idRol: 2,
-      imagen: imagenSeleccionada!,
-      accessToken: accessToken,
-      carpetaDriveId: carpetaDriveId,
-    );
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.teal)),
+      );
 
-    Navigator.of(context).pop(); // ❌ Cierra el indicador de carga
+      // ⚠️ Este embedding es de prueba. Sustituir con ML Kit real luego.
+      final plantilla = PlantillaFacial([0.25, 0.83, 0.62]); // <- Simulación
+      plantillaFacialCodificada = plantilla.toBase64();
 
-    final mensaje = resultado.startsWith('ok')
-        ? '✅ Usuario registrado con éxito'
-        : resultado;
+      final resultado = await enviarDatosRegistroUsuario(
+        cedula: cedulaController.text.trim(),
+        nombre: nombreController.text.trim(),
+        apellido: apellidoController.text.trim(),
+        correo: emailController.text.trim(),
+        genero: generoSeleccionado ?? 'SinGenero',
+        idResponsable: 1,
+        fechaNacimiento: fechaNacimiento ?? DateTime(2000, 1, 1),
+        contrasena: passwordController.text.trim(),
+        idRol: 2,
+        imagen: imagenSeleccionada!,
+        accessToken: accessToken,
+        carpetaDriveId: carpetaDriveId,
+        plantillaFacial: plantillaFacialCodificada!, plantillaFacialBase64: '',
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje)),
-    );
+      Navigator.of(context).pop();
+
+      final mensaje = resultado.startsWith('ok')
+          ? '✅ Usuario registrado con éxito'
+          : resultado;
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +323,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                       ),
                     ),
                     dropdownColor: Colors.black,
-                    items: [ 2, 3, 4].map((rol) {
+                    items: [2, 3, 4].map((rol) {
                       return DropdownMenuItem(
                         value: rol,
                         child: Text('Rol $rol'),

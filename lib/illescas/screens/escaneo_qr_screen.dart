@@ -1,10 +1,12 @@
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
 import 'package:instasafe/berrezueta/widgets/menu_lateral_drawer_widget.dart';
+
+import 'package:instasafe/illescas/screens/verificar.dart'; // 👈 Asegúrate de importar
 
 class EscaneoQRScreen extends StatelessWidget {
   const EscaneoQRScreen({super.key});
@@ -78,11 +80,13 @@ class EscaneoQRScreen extends StatelessWidget {
     );
   }
 
-  Widget _botonOpcion(BuildContext context,
-      {required IconData icon,
-      required String titulo,
-      required String subtitulo,
-      required VoidCallback onPressed}) {
+  Widget _botonOpcion(
+    BuildContext context, {
+    required IconData icon,
+    required String titulo,
+    required String subtitulo,
+    required VoidCallback onPressed,
+  }) {
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(15),
@@ -116,7 +120,7 @@ class EscaneoQRScreen extends StatelessWidget {
                   ),
                 ),
               ],
-            )
+            ),
           ],
         ),
       ),
@@ -137,29 +141,32 @@ class EscaneoQRScreen extends StatelessWidget {
 
       final bytes = await pickedFile.readAsBytes();
 
-     final url = Uri.parse('http://192.168.56.53:8090/api/verificacion/verificar');
-
+      // 🔁 Cambia esta URL por tu IP real y puerto correcto
+      final url = Uri.parse('http://192.168.68.122:8090/api/verificacion/facial');
 
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/octet-stream',
-        },
+        headers: {'Content-Type': 'application/octet-stream'},
         body: bytes,
       );
 
-      final mensaje = response.statusCode == 200
-          ? (response.body == 'true'
-              ? '✅ Rostro verificado: Acceso concedido.'
-              : '❌ Rostro no reconocido.')
-          : '⚠️ Error del servidor (${response.statusCode}).';
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonData = jsonDecode(response.body);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mensaje)),
-      );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerificacionResultadoScreen(datosUsuario: jsonData),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error del servidor (${response.statusCode})')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(content: Text('❌ Error al verificar: $e')),
       );
     }
   }
