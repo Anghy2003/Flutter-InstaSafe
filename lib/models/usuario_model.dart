@@ -1,11 +1,9 @@
-import 'dart:typed_data';
-
 class Usuario {
   final String cedula;
   final String nombre;
   final String apellido;
   final String correo;
-  final Uint8List biometrico; // imagen en bytes
+  final String? foto; 
   final String genero;
   final int idresponsable;
   final DateTime fechanacimiento;
@@ -17,7 +15,7 @@ class Usuario {
     required this.nombre,
     required this.apellido,
     required this.correo,
-    required this.biometrico,
+    this.foto, 
     required this.genero,
     required this.idresponsable,
     required this.fechanacimiento,
@@ -35,5 +33,6 @@ class Usuario {
     'contrasena': contrasena,
     'fechanacimiento': fechanacimiento.toIso8601String(),
     'id_rol': idRol.toString(),
+    if (foto != null) 'foto': foto!, 
   };
 }
