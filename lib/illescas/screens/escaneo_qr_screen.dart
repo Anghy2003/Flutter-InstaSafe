@@ -1,4 +1,8 @@
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
 import 'package:instasafe/berrezueta/widgets/menu_lateral_drawer_widget.dart';
 
@@ -8,7 +12,6 @@ class EscaneoQRScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ancho = MediaQuery.of(context).size.width;
-    
 
     return DegradadoFondoScreen(
       child: Scaffold(
@@ -36,33 +39,28 @@ class EscaneoQRScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               const SizedBox(height: 60),
-              // Icono QR grande
               Icon(
                 Icons.qr_code_2_rounded,
                 size: ancho * 0.65,
                 color: Colors.white,
               ),
               const SizedBox(height: 40),
-              // Botón ESCANEAR QR
               _botonOpcion(
                 context,
                 icon: Icons.qr_code_scanner_rounded,
                 titulo: "ESCANEAR QR",
                 subtitulo: "Escanea un código QR",
                 onPressed: () {
-                  // Lógica para escanear QR
+                  // Lógica futura para escanear QR
                 },
               ),
               const SizedBox(height: 40),
-              // Botón TOMAR FOTO
               _botonOpcion(
                 context,
                 icon: Icons.photo_camera_front_rounded,
                 titulo: "TOMAR FOTO",
                 subtitulo: "Captura una imagen",
-                onPressed: () {
-                  // Lógica para tomar foto
-                },
+                onPressed: () => tomarFotoYVerificar(context),
               ),
               const Spacer(),
               Text(
@@ -91,7 +89,7 @@ class EscaneoQRScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF0A2240), // Azul oscuro
+          color: const Color(0xFF0A2240),
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.blueAccent.shade700),
         ),
@@ -123,5 +121,46 @@ class EscaneoQRScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> tomarFotoYVerificar(BuildContext context) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.camera);
+
+      if (pickedFile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se tomó ninguna foto.')),
+        );
+        return;
+      }
+
+      final bytes = await pickedFile.readAsBytes();
+
+     final url = Uri.parse('http://192.168.56.53:8090/api/verificacion/verificar');
+
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/octet-stream',
+        },
+        body: bytes,
+      );
+
+      final mensaje = response.statusCode == 200
+          ? (response.body == 'true'
+              ? '✅ Rostro verificado: Acceso concedido.'
+              : '❌ Rostro no reconocido.')
+          : '⚠️ Error del servidor (${response.statusCode}).';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensaje)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error: $e')),
+      );
+    }
   }
 }
