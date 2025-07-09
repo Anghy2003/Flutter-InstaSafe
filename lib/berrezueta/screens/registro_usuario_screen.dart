@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:instasafe/berrezueta/widgets/menu_lateral_drawer_widget.dart';
 import 'package:instasafe/berrezueta/widgets/registro/enviar_datos_registro_usuario.dart';
+import 'package:instasafe/berrezueta/widgets/registro/funciones_registrar_usuario.dart';
 import 'package:instasafe/berrezueta/widgets/registro/icono_camara_registro.dart';
 import 'package:instasafe/berrezueta/widgets/registro/estilo_input_registro.dart';
 import 'package:instasafe/berrezueta/widgets/registro/validaciones_registro.dart';
@@ -20,6 +22,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
 
   final cedulaController = TextEditingController();
   final nombreController = TextEditingController();
+  final apellidoController = TextEditingController();
   final telefonoController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -27,24 +30,25 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   File? imagenSeleccionada;
   bool formularioValido = false;
   bool imagenSubida = false;
+  DateTime? fechaNacimiento;
+  String? generoSeleccionado;
+  int? rolSeleccionado;
+  bool ocultarPassword = true;
 
   void verificarEstadoFormulario() {
-    final inputsLlenos = cedulaController.text.isNotEmpty &&
-        nombreController.text.isNotEmpty &&
-        telefonoController.text.isNotEmpty &&
-        emailController.text.isNotEmpty &&
-        passwordController.text.isNotEmpty &&
-        imagenSeleccionada != null;
-
-    final camposValidos =
-        ValidacionesRegistro.validarCedula(cedulaController.text) == null &&
-        ValidacionesRegistro.validarNombre(nombreController.text) == null &&
-        ValidacionesRegistro.validarTelefono(telefonoController.text) == null &&
-        ValidacionesRegistro.validarEmail(emailController.text) == null &&
-        ValidacionesRegistro.validarPassword(passwordController.text) == null;
-
     setState(() {
-      formularioValido = inputsLlenos && camposValidos && imagenSubida;
+      formularioValido = validarFormularioCompleto(
+        cedulaController: cedulaController,
+        nombreController: nombreController,
+        apellidoController: apellidoController,
+        telefonoController: telefonoController,
+        emailController: emailController,
+        passwordController: passwordController,
+        imagenSeleccionada: imagenSeleccionada,
+        fechaNacimiento: fechaNacimiento,
+        generoSeleccionado: generoSeleccionado,
+        rolSeleccionado: rolSeleccionado,
+      );
     });
   }
 
@@ -72,6 +76,16 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
       verificarEstadoFormulario();
     });
 
+    apellidoController.addListener(() {
+      final texto = apellidoController.text;
+      final limpio = texto.replaceAll(RegExp(r'[^a-zA-ZÁÉÍÓÚÑáéíóúñ\s]'), '');
+      if (texto != limpio) {
+        apellidoController.text = limpio;
+        apellidoController.selection = TextSelection.collapsed(offset: limpio.length);
+      }
+      verificarEstadoFormulario();
+    });
+
     telefonoController.addListener(() {
       final texto = telefonoController.text;
       final limpio = texto.replaceAll(RegExp(r'[^0-9+]'), '');
@@ -90,6 +104,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   void dispose() {
     cedulaController.dispose();
     nombreController.dispose();
+    apellidoController.dispose();
     telefonoController.dispose();
     emailController.dispose();
     passwordController.dispose();
@@ -106,18 +121,44 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   FocusScope.of(context).unfocus();
 
   if (formKey.currentState!.validate() && imagenSeleccionada != null) {
-    final resultado = await enviarDatosRegistroUsuario(
-      cedula: cedulaController.text,
-      nombre: nombreController.text,
-      apellido: 'SinApellido',
-      correo: emailController.text,
-      genero: 'SinGenero',
-      idResponsable: 1,
-      fechaNacimiento: DateTime(2000, 1, 1),
-      contrasena: passwordController.text,
-      idRol: 1,
-      imagen: imagenSeleccionada!,
+    final accessToken = UsuarioActual.accessToken;
+    final carpetaDriveId = UsuarioActual.carpetaDriveId;
+
+    if (accessToken == null || carpetaDriveId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ Falta iniciar sesión con Google')),
+      );
+      return;
+    }
+
+    // 🌀 Mostrar indicador de carga
+    showDialog(
+      context: context,
+      barrierDismissible: false, // no cerrar al tocar afuera
+      builder: (context) {
+        return const Center(
+          child: CircularProgressIndicator(color: Colors.teal),
+        );
+      },
     );
+
+    // 📤 Enviar datos mientras se muestra el indicador
+    final resultado = await enviarDatosRegistroUsuario(
+      cedula: cedulaController.text.trim(),
+      nombre: nombreController.text.trim(),
+      apellido: apellidoController.text.trim(),
+      correo: emailController.text.trim(),
+      genero: generoSeleccionado ?? 'SinGenero',
+      idResponsable: 1,
+      fechaNacimiento: fechaNacimiento ?? DateTime(2000, 1, 1),
+      contrasena: passwordController.text.trim(),
+      idRol: 2,
+      imagen: imagenSeleccionada!,
+      accessToken: accessToken,
+      carpetaDriveId: carpetaDriveId,
+    );
+
+    Navigator.of(context).pop(); // ❌ Cierra el indicador de carga
 
     final mensaje = resultado.startsWith('ok')
         ? '✅ Usuario registrado con éxito'
@@ -155,9 +196,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 10),
-                  IconoCamaraRegistro(
-                    onFotoCambiada: manejarCambioFoto,
-                  ),
+                  IconoCamaraRegistro(onFotoCambiada: manejarCambioFoto),
                   const SizedBox(height: 30),
                   EstiloInputRegistro(
                     etiqueta: 'Cédula',
@@ -174,6 +213,13 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     controller: nombreController,
                   ),
                   EstiloInputRegistro(
+                    etiqueta: 'Apellido',
+                    textoPlaceholder: 'Perez Andrade',
+                    icono: Icons.person_outline,
+                    tipoCampo: 'apellido',
+                    controller: apellidoController,
+                  ),
+                  EstiloInputRegistro(
                     etiqueta: 'Teléfono',
                     textoPlaceholder: '+593...',
                     icono: Icons.phone,
@@ -187,18 +233,112 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     tipoCampo: 'email',
                     controller: emailController,
                   ),
-                  EstiloInputRegistro(
-                    etiqueta: 'Contraseña',
-                    textoPlaceholder: '********',
-                    icono: Icons.lock,
-                    tipoCampo: 'contraseña',
-                    esPassword: true,
+                  const SizedBox(height: 10),
+                  TextFormField(
                     controller: passwordController,
+                    obscureText: ocultarPassword,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      labelStyle: const TextStyle(color: Colors.white),
+                      hintText: '********',
+                      hintStyle: const TextStyle(color: Colors.white70),
+                      prefixIcon: const Icon(Icons.lock, color: Colors.white),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          ocultarPassword ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.white70,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            ocultarPassword = !ocultarPassword;
+                          });
+                        },
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.blueAccent),
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    validator: (value) => ValidacionesRegistro.validarPassword(value ?? ''),
+                    onChanged: (_) => verificarEstadoFormulario(),
+                  ),
+                  const SizedBox(height: 20),
+                  ListTile(
+                    title: Text(
+                      fechaNacimiento == null
+                          ? 'Selecciona tu fecha de nacimiento'
+                          : 'Fecha: ${fechaNacimiento!.toLocal().toString().split(" ")[0]}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    trailing: const Icon(Icons.calendar_today, color: Colors.white),
+                    onTap: () async {
+                      final seleccionada = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime(2000, 1, 1),
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime.now(),
+                      );
+                      if (seleccionada != null) {
+                        setState(() {
+                          fechaNacimiento = seleccionada;
+                          verificarEstadoFormulario();
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: generoSeleccionado,
+                    decoration: const InputDecoration(
+                      labelText: 'Género',
+                      labelStyle: TextStyle(color: Colors.white),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
+                    ),
+                    dropdownColor: Colors.black,
+                    items: ['Masculino', 'Femenino'].map((genero) {
+                      return DropdownMenuItem(
+                        value: genero,
+                        child: Text(genero),
+                      );
+                    }).toList(),
+                    onChanged: (valor) {
+                      setState(() {
+                        generoSeleccionado = valor;
+                        verificarEstadoFormulario();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: rolSeleccionado,
+                    decoration: const InputDecoration(
+                      labelText: 'Rol',
+                      labelStyle: TextStyle(color: Colors.white),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
+                    ),
+                    dropdownColor: Colors.black,
+                    items: [ 2, 3, 4].map((rol) {
+                      return DropdownMenuItem(
+                        value: rol,
+                        child: Text('Rol $rol'),
+                      );
+                    }).toList(),
+                    onChanged: (valor) {
+                      setState(() {
+                        rolSeleccionado = valor;
+                        verificarEstadoFormulario();
+                      });
+                    },
                   ),
                   const SizedBox(height: 30),
-                  _RegistrarButton(
-                    onPressed: formularioValido ? registrarUsuario : null,
-                  ),
+                  _RegistrarButton(onPressed: formularioValido ? registrarUsuario : null),
                   const SizedBox(height: 20),
                   const Text('©IstaSafe', style: TextStyle(color: Colors.white70)),
                 ],

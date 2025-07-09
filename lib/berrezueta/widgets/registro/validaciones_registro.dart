@@ -36,6 +36,16 @@ class ValidacionesRegistro {
     return null;
   }
 
+  static String? validarApellido(String value) {
+  final apellido = value.trim();
+  if (apellido.isEmpty) return 'El apellido es obligatorio';
+  if (!RegExp(r"^[a-zA-ZÁÉÍÓÚÑáéíóúñ\s]+$").hasMatch(apellido)) {
+    return 'El apellido solo debe contener letras';
+  }
+  return null;
+}
+
+
   static String? validarTelefono(String value) {
     final telefono = value.trim();
     if (telefono.isEmpty) return 'El teléfono es obligatorio';

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:instasafe/berrezueta/widgets/menuPrincipal/boton_iniciar_sesion_google.dart';
 import 'package:intl/intl.dart';
 
 import '../widgets/menuPrincipal/tarjeta_boton_menu_principal.dart';
@@ -110,7 +111,7 @@ class MenuPrincipalScreen extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 4),
+                
                 Text(
                   '©IstaSafe',
                   style: TextStyle(

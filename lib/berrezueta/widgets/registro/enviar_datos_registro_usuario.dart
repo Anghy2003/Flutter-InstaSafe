@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
+import 'package:instasafe/berrezueta/widgets/registro/subir_imagen_drive.dart'; // 👈 ajusta según tu ruta
 
 Future<String> enviarDatosRegistroUsuario({
   required String cedula,
@@ -13,38 +13,43 @@ Future<String> enviarDatosRegistroUsuario({
   required String contrasena,
   required int idRol,
   required File imagen,
+  required String accessToken,
+  required String carpetaDriveId,
 }) async {
   try {
-    final uri = Uri.parse('http://192.168.56.48:8090/api/usuarios');
-    final request = http.MultipartRequest('POST', uri);
+    final fotoUrl = await subirImagenADrive(imagen, accessToken, carpetaDriveId);
 
-    request.fields['cedula'] = cedula;
-    request.fields['nombre'] = nombre;
-    request.fields['apellido'] = apellido;
-    request.fields['correo'] = correo;
-    request.fields['genero'] = genero;
-    request.fields['idresponsable'] = idResponsable.toString();
-    request.fields['fechanacimiento'] = fechaNacimiento.toIso8601String();
-    request.fields['contrasena'] = contrasena;
-    request.fields['id_rol'] = idRol.toString();
+    if (fotoUrl == null) {
+      return '❌ Error al subir imagen a Drive';
+    }
 
-    final bytes = await imagen.readAsBytes();
-    request.files.add(http.MultipartFile.fromBytes(
-      'biometrico',
-      bytes,
-      filename: 'rostro.jpg',
-      contentType: MediaType('image', 'jpeg'),
-    ));
+    print('📤 Enviando datos de usuario con foto: $fotoUrl');
+
+    final uri = Uri.parse('http://192.168.68.122:8090/api/usuarios');
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['cedula'] = cedula
+      ..fields['nombre'] = nombre
+      ..fields['apellido'] = apellido
+      ..fields['correo'] = correo
+      ..fields['genero'] = genero
+      ..fields['idresponsable'] = idResponsable.toString()
+      ..fields['fechanacimiento'] = fechaNacimiento.toIso8601String()
+      ..fields['contrasena'] = contrasena
+      ..fields['id_rol'] = idRol.toString()
+      ..fields['foto'] = fotoUrl;
 
     final response = await request.send();
 
     if (response.statusCode == 200 || response.statusCode == 201) {
+      print('✅ Usuario registrado correctamente');
       return 'ok';
     } else {
       final error = await response.stream.bytesToString();
+      print('❌ Error al registrar usuario: $error');
       return 'Servidor respondió con error: $error';
     }
   } catch (e) {
+    print('❌ Excepción al registrar usuario: $e');
     return 'Excepción de conexión: $e';
   }
 }
