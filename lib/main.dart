@@ -5,6 +5,7 @@ import 'router.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_ES', null); // Inicializa datos regionales
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(MyApp());
 }
 

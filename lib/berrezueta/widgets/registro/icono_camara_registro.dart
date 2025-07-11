@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
@@ -30,38 +31,47 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
     )..repeat(reverse: true);
 
     _borderColorAnimation = ColorTween(
-      begin: Colors.white24,
-      end: Colors.white70,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  begin: Colors.blueAccent.shade700, // tenue
+  end: const Color.fromARGB(255, 183, 224, 244),   // el color que tú pediste
+).animate(
+  CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+);
+
+
+
   }
 
   Future<void> _procesarImagen(ImageSource source) async {
-    final seleccion = await _picker.pickImage(source: source);
-    if (seleccion == null) return;
+  final seleccion = await _picker.pickImage(
+    source: source,
+    preferredCameraDevice: CameraDevice.rear, // ✅ Solo cámara trasera
+  );
+  if (seleccion == null) return;
 
-    final archivo = File(seleccion.path);
+  final archivo = File(seleccion.path);
+  setState(() {
+    _verificando = true;
+    _imagenSeleccionada = null;
+  });
+
+  final resultado = await _validarImagen(archivo);
+
+  if (resultado == 'ok') {
     setState(() {
-      _verificando = true;
+      _imagenSeleccionada = archivo;
+      _verificando = false;
+    });
+    widget.onFotoCambiada?.call(true, archivo);
+  } else {
+    setState(() {
+      _verificando = false;
       _imagenSeleccionada = null;
     });
-
-    final resultado = await _validarImagen(archivo);
-
-    if (resultado == 'ok') {
-      setState(() {
-        _imagenSeleccionada = archivo;
-        _verificando = false;
-      });
-      widget.onFotoCambiada?.call(true, archivo);
-    } else {
-      setState(() {
-        _verificando = false;
-        _imagenSeleccionada = null;
-      });
-      widget.onFotoCambiada?.call(false, null);
-      _mostrarDialogoError(resultado);
-    }
+    widget.onFotoCambiada?.call(false, null);
+    _mostrarDialogoError(resultado);
   }
+}
+
 
   Future<String> _validarImagen(File imagen) async {
     final inputImage = InputImage.fromFile(imagen);
@@ -69,35 +79,41 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
       options: FaceDetectorOptions(
         enableClassification: true,
         enableContours: true,
+        performanceMode: FaceDetectorMode.accurate,
       ),
     );
     final rostros = await detector.processImage(inputImage);
     await detector.close();
 
-    if (rostros.isEmpty) return 'No se detectó ningún rostro';
-    if (rostros.length > 1) return 'La imagen contiene más de un rostro';
+    if (rostros.isEmpty) return '❌ No se detectó ningún rostro.';
+    if (rostros.length > 1) return '❌ Solo se permite un rostro en la imagen.';
 
     final rostro = rostros.first;
-    final ojosAbiertos = (rostro.leftEyeOpenProbability ?? 0) > 0.6 &&
-                         (rostro.rightEyeOpenProbability ?? 0) > 0.6;
-    final orientacionCorrecta = (rostro.headEulerAngleY ?? 0).abs() < 25 &&
-                                (rostro.headEulerAngleZ ?? 0).abs() < 20;
 
-    final boundingBox = rostro.boundingBox;
-    final rostroArea = boundingBox.width * boundingBox.height;
-
-    const contenedorWidth = 120.0;
-    const contenedorHeight = 120.0;
-    final contenedorArea = contenedorWidth * contenedorHeight;
-
-    final porcentajeRostro = rostroArea / contenedorArea;
-
-    if (porcentajeRostro < 0.50) {
-      return 'El rostro ocupa menos del 50% del área. Acércate más a la cámara.';
+    // Validar expresión neutral (sin sonreír exageradamente)
+    final sonrisa = rostro.smilingProbability ?? 0;
+    if (sonrisa > 0.6) {
+      return '❌ Expresión muy sonriente detectada. Usa una expresión neutral.';
     }
 
-    if (!ojosAbiertos || !orientacionCorrecta) {
-      return 'El rostro está tapado o mal posicionado';
+    // Validar que los ojos estén abiertos (sin lentes oscuros)
+    final ojosAbiertos = (rostro.leftEyeOpenProbability ?? 0) > 0.5 &&
+                         (rostro.rightEyeOpenProbability ?? 0) > 0.5;
+    if (!ojosAbiertos) {
+      return '❌ Ojos cerrados o lentes detectados. Usa rostro despejado.';
+    }
+
+    // Validar orientación del rostro (frontal, no inclinado ni girado)
+    final orientacionCorrecta = (rostro.headEulerAngleY ?? 0).abs() < 15 &&
+                                (rostro.headEulerAngleZ ?? 0).abs() < 15;
+    if (!orientacionCorrecta) {
+      return '❌ Rostro mal alineado. Mira de frente a la cámara.';
+    }
+
+    // Validar que el rostro no esté demasiado lejos (muy pequeño)
+    final boundingBox = rostro.boundingBox;
+    if (boundingBox.width < 100 || boundingBox.height < 100) {
+      return '❌ Rostro muy pequeño. Acércate un poco más.';
     }
 
     return 'ok';
@@ -125,55 +141,56 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
   }
 
   Widget _contenedorImagen() {
-    return GestureDetector(
-      onTap: () => _procesarImagen(ImageSource.camera),
-      child: AnimatedBuilder(
-        animation: _borderColorAnimation,
-        builder: (context, child) {
-          return Container(
-            width: 120,
-            height: 120,
+  return GestureDetector(
+    onTapDown: (_) => _controller.forward(),
+    onTapUp: (_) {
+      _controller.reverse();
+      _procesarImagen(ImageSource.camera);
+    },
+    onTapCancel: () => _controller.reverse(),
+    child: AnimatedBuilder(
+      animation: _borderColorAnimation,
+      builder: (context, child) {
+        return ScaleTransition(
+          scale: Tween<double>(begin: 1.0, end: 0.95).animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+          ),
+          child: Container(
+            width: 130,
+            height: 130,
             decoration: BoxDecoration(
+              color: Colors.transparent, // Fondo transparente
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: _borderColorAnimation.value ?? Colors.white,
-                width: 2,
+                color: _borderColorAnimation.value ?? const Color.fromRGBO(8, 66, 92, 1),
+                width: 1.5,
               ),
             ),
-            child: _verificando
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.white70),
-                  )
-                : _imagenSeleccionada != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.file(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(13),
+              child: _verificando
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Color.fromARGB(255, 255, 255, 255)),
+                    )
+                  : _imagenSeleccionada != null
+                      ? Image.file(
                           _imagenSeleccionada!,
                           fit: BoxFit.cover,
-                          width: 120,
-                          height: 120,
-                        ),
-                      )
-                    : const Icon(Icons.camera_alt, size: 60, color: Colors.white70),
-          );
-        },
-      ),
-    );
-  }
+                          width: 130,
+                          height: 130,
+                        )
+                      : const Icon(Icons.camera_alt, size: 60, color: Color.fromARGB(255, 255, 255, 255)),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
 
-  Widget _botonGaleria() {
-    return TextButton.icon(
-      onPressed: () => _procesarImagen(ImageSource.gallery),
-      icon: const Icon(Icons.photo_library, color: Colors.white70),
-      label: const Text(
-        'Subir desde galería',
-        style: TextStyle(color: Colors.white70),
-      ),
-      style: TextButton.styleFrom(
-        foregroundColor: Colors.white70,
-      ),
-    );
-  }
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +198,8 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
       children: [
         _contenedorImagen(),
         const SizedBox(height: 8),
-        
+        // Si deseas agregar el botón de galería otra vez, lo puedes activar aquí
+        // _botonGaleria(),
       ],
     );
   }

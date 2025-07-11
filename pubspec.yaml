@@ -21,7 +21,10 @@ dependencies:
   image: ^3.3.0
   image_picker: ^1.0.4
   intl: ^0.20.2
-  tflite_flutter: ^0.10.0
+  tflite_flutter: ^0.10.3
+  flutter_isolate: ^2.0.4
+  logging: ^1.2.0
+  synchronized: ^3.0.0
 
 dev_dependencies:
   flutter_lints: ^3.0.0
@@ -30,6 +33,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+   - assets/modelos/mobilefacenet_ente_web.tflite
   # assets:
   #   - assets/modelos/
   #   - assets/imagenes/
