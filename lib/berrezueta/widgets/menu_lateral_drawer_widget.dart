@@ -1,143 +1,135 @@
-// main.dart
+// menu_lateral_drawer_widget.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-final _router = GoRouter(
-  initialLocation: '/',
-  routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const MyHomePage(),
-    ),
-    GoRoute(
-      path: '/historial',
-      builder: (context, state) => const SimplePage(title: 'Historial'),
-    ),
-    GoRoute(
-      path: '/perfil',
-      builder: (context, state) => const SimplePage(title: 'Perfil'),
-    ),
-    GoRoute(
-      path: '/escaneo',
-      builder: (context, state) => const SimplePage(title: 'Escanear QR'),
-    ),
-    GoRoute(
-      path: '/registro',
-      builder: (context, state) => const SimplePage(title: 'Registrar Usuario'),
-    ),
-  ],
-);
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp.router(
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF1A1A2E),
-        brightness: Brightness.dark,
-      ),
-      routerConfig: _router,
-    );
-  }
-}
-
-class MyHomePage extends StatelessWidget {
-  const MyHomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      drawer: const DrawerMenuLateral(),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF07294D),
-        title: const Text('Inicio'),
-      ),
-      body: const Center(
-        child: Text(
-          'Bienvenido',
-          style: TextStyle(color: Colors.white, fontSize: 24),
-        ),
-      ),
-    );
-  }
-}
-
-class SimplePage extends StatelessWidget {
-  final String title;
-  const SimplePage({required this.title, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF07294D),
-        title: Text(title),
-      ),
-      drawer: const DrawerMenuLateral(),
-      body: Center(
-        child: Text(
-          title,
-          style: const TextStyle(color: Colors.white, fontSize: 24),
-        ),
-      ),
-    );
-  }
-}
+import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
 
 class DrawerMenuLateral extends StatelessWidget {
   const DrawerMenuLateral({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final estilo = const TextStyle(color: Colors.white, fontSize: 16);
-
     return Drawer(
-      backgroundColor: const Color(0xFF1A1A2E),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(color: Color(0xFF07294D)),
-            child: Center(
-              child: Text('Menú', style: TextStyle(fontSize: 20, color: Colors.white)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.zero,
+        child: DegradadoFondoScreen(
+          child: Container(
+            height: double.infinity,
+            width: double.infinity,
+            color: Colors.transparent,
+            child: Column(
+              children: [
+                // Header con perfil de usuario
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
+                  child: Column(
+                    children: [
+                      // Foto de perfil
+                      Container(
+                        width: 105,
+                        height: 105,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                          image: const DecorationImage(
+                            image: NetworkImage('https://eduv.tecazuay.edu.ec/pluginfile.php/40622/user/icon/academi/f1?rev=594406'),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Nombre del usuario
+                      const Text(
+                        'Angie Illescas',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Opciones del menú
+                Expanded(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      _buildMenuItem(
+                        context,
+                        Icons.history,
+                        'Historial',
+                        '/historial',
+                      ),
+                      _buildMenuItem(
+                        context,
+                        Icons.person,
+                        'Perfil',
+                        '/perfil',
+                      ),
+                      _buildMenuItem(
+                        context,
+                        Icons.login,
+                        'Registrar Ingreso',
+                        '/escaneo',
+                      ),
+                      _buildMenuItem(
+                        context,
+                        Icons.person_add,
+                        'Registrar Usuario',
+                        '/registro',
+                      ),
+                      const Spacer(),
+                      _buildMenuItem(
+                        context,
+                        Icons.logout,
+                        'Salir',
+                        '/login',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.history, color: Colors.white),
-            title: Text('Historial', style: estilo),
-            onTap: () => context.go('/historial'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(BuildContext context, IconData icon, String title, String route) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: Colors.white,
+          size: 22,
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
           ),
-          ListTile(
-            leading: const Icon(Icons.person, color: Colors.white),
-            title: Text('Perfil', style: estilo),
-            onTap: () => context.go('/perfil'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.qr_code_scanner, color: Colors.white),
-            title: Text('Escanear QR', style: estilo),
-            onTap: () => context.go('/escaneo'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.person_add, color: Colors.white),
-            title: Text('Registrar Usuario', style: estilo),
-            onTap: () => context.go('/registro'),
-          ),
-          const Spacer(),
-          Divider(color: Colors.grey[600]),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.white),
-            title: Text('Salir', style: estilo),
-            onTap: () => context.go('/'),
-          ),
-        ],
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          color: Colors.white54,
+          size: 16,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        onTap: () {
+          Navigator.pop(context);
+          context.go(route);
+        },
+        hoverColor: Colors.white.withOpacity(0.1),
+        splashColor: Colors.white.withOpacity(0.2),
       ),
     );
   }
