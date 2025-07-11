@@ -13,20 +13,30 @@ class BotonIniciarSesionGoogle extends StatelessWidget {
 
     try {
       await googleSignIn.signOut(); // 👈 Cierra cualquier sesión previa
-
-      final cuenta = await googleSignIn.signIn(); // 👈 Fuerza que el usuario elija cuenta
+      final cuenta = await googleSignIn.signIn(); // 👈 Pide elegir cuenta
       final auth = await cuenta?.authentication;
       final accessToken = auth?.accessToken;
 
-      if (accessToken != null) {
+      if (accessToken != null && cuenta != null) {
+        // 🔐 Guardar token y correo
         UsuarioActual.accessToken = accessToken;
         UsuarioActual.carpetaDriveId = '1ANmx_dBv3xzzahMEMQSsNG6LiwFI1Xti';
+        UsuarioActual.fotoUrl = cuenta.photoUrl;
+        UsuarioActual.correo = cuenta.email;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✔ Sesión iniciada con éxito')),
-        );
+        // 🔍 Buscar datos desde la API Spring
+        final ok = await UsuarioActual.cargarDesdeCorreo(cuenta.email);
 
-        context.go('/menu'); // ✅ Redirige al menú
+        if (ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✔ Sesión iniciada con éxito')),
+          );
+          context.go('/menu');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('⚠ No se encontró el usuario')),
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('⚠ No se pudo obtener token')),
