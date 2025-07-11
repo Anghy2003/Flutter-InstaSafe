@@ -9,7 +9,7 @@ class Usuario {
   final DateTime fechanacimiento;
   final String contrasena;
   final int idRol;
-  final String? plantillaFacial; // 🧠 Nueva propiedad para el embedding facial
+  final String? plantillaFacial;
 
   Usuario({
     required this.cedula,
@@ -22,9 +22,10 @@ class Usuario {
     required this.fechanacimiento,
     required this.contrasena,
     required this.idRol,
-    this.plantillaFacial, // 👈 nuevo en constructor
+    this.plantillaFacial,
   });
 
+  /// 🟢 Para guardar (no se toca)
   Map<String, String> toTextFields() => {
         'cedula': cedula,
         'nombre': nombre,
@@ -36,6 +37,23 @@ class Usuario {
         'fechanacimiento': fechanacimiento.toIso8601String(),
         'id_rol': idRol.toString(),
         if (foto != null) 'foto': foto!,
-        if (plantillaFacial != null) 'plantilla': plantillaFacial!, // 👈 nuevo campo
+        if (plantillaFacial != null) 'plantillaFacial': plantillaFacial!,
       };
+
+  /// 🟡 Para leer desde backend (nuevo, sin romper nada)
+  factory Usuario.fromJson(Map<String, dynamic> json) {
+    return Usuario(
+      cedula: json['cedula'] ?? '',
+      nombre: json['nombre'] ?? '',
+      apellido: json['apellido'] ?? '',
+      correo: json['correo'] ?? '',
+      foto: json['foto'],
+      genero: json['genero'] ?? '',
+      idresponsable: json['idresponsable'] ?? 0,
+      fechanacimiento: DateTime.tryParse(json['fechanacimiento'] ?? '') ?? DateTime(2000),
+      contrasena: json['contrasena'] ?? '',
+      idRol: (json['id_rol'] is Map) ? json['id_rol']['id'] ?? 0 : json['id_rol'] ?? 0,
+      plantillaFacial: json['plantillaFacial'],
+    );
+  }
 }

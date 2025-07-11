@@ -6,10 +6,16 @@ class EstiloInputRegistro extends StatelessWidget {
   final String etiqueta;
   final String textoPlaceholder;
   final IconData icono;
-  final bool esPassword;
   final String tipoCampo;
   final TextEditingController? controller;
   final List<TextInputFormatter>? inputFormatters;
+
+  // Para campos tipo contraseña
+  final bool esContrasena;
+  final bool ocultarTexto;
+  final VoidCallback? onToggleVisibilidad;
+
+  final String? Function(String?)? validator;
 
   const EstiloInputRegistro({
     super.key,
@@ -19,7 +25,10 @@ class EstiloInputRegistro extends StatelessWidget {
     required this.tipoCampo,
     this.controller,
     this.inputFormatters,
-    this.esPassword = false,
+    this.esContrasena = false,
+    this.ocultarTexto = true,
+    this.onToggleVisibilidad,
+    this.validator,
   });
 
   String? _validarCampo(String value) {
@@ -28,10 +37,13 @@ class EstiloInputRegistro extends StatelessWidget {
         return ValidacionesRegistro.validarCedula(value);
       case 'nombre':
         return ValidacionesRegistro.validarNombre(value);
+      case 'apellido':
+        return ValidacionesRegistro.validarApellido(value);
       case 'telefono':
         return ValidacionesRegistro.validarTelefono(value);
       case 'email':
         return ValidacionesRegistro.validarEmail(value);
+      case 'password':
       case 'contraseña':
         return ValidacionesRegistro.validarPassword(value);
       default:
@@ -42,36 +54,51 @@ class EstiloInputRegistro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(etiqueta, style: const TextStyle(color: Colors.white70)),
-          Row(
-            children: [
-              Icon(icono, color: Colors.white),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: controller,
-                  obscureText: esPassword,
-                  style: const TextStyle(color: Colors.white),
-                  validator: (value) => _validarCampo(value ?? ''),
-                  inputFormatters: inputFormatters,
-                  decoration: InputDecoration(
-                    hintText: textoPlaceholder,
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    border: InputBorder.none,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: TextFormField(
+        controller: controller,
+        obscureText: esContrasena ? ocultarTexto : false,
+        style: const TextStyle(color: Colors.white),
+        validator: validator ?? (value) => _validarCampo(value ?? ''),
+        inputFormatters: inputFormatters,
+        decoration: InputDecoration(
+          labelText: etiqueta,
+          labelStyle: const TextStyle(color: Colors.white),
+          hintText: textoPlaceholder,
+          hintStyle: const TextStyle(color: Colors.white70),
+          prefixIcon: Icon(icono, color: Colors.white),
+          suffixIcon: esContrasena
+              ? IconButton(
+                  icon: Icon(
+                    ocultarTexto ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.white,
                   ),
-                ),
-              ),
-              if (esPassword)
-                const Icon(Icons.visibility, color: Colors.white),
-            ],
+                  onPressed: onToggleVisibilidad,
+                )
+              : null,
+          enabledBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.white70),
           ),
-          const Divider(color: Colors.white38, thickness: 1),
-        ],
+          focusedBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.white),
+          ),
+        ),
+        keyboardType: _definirTipoTeclado(),
       ),
     );
+  }
+
+  TextInputType _definirTipoTeclado() {
+    switch (tipoCampo.toLowerCase()) {
+      case 'telefono':
+        return TextInputType.phone;
+      case 'email':
+        return TextInputType.emailAddress;
+      case 'password':
+      case 'contraseña':
+        return TextInputType.visiblePassword;
+      default:
+        return TextInputType.text;
+    }
   }
 }

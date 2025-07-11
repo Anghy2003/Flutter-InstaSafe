@@ -7,9 +7,14 @@ import 'package:instasafe/berrezueta/widgets/registro/enviar_datos_registro_usua
 import 'package:instasafe/berrezueta/widgets/registro/funciones_registrar_usuario.dart';
 import 'package:instasafe/berrezueta/widgets/registro/icono_camara_registro.dart';
 import 'package:instasafe/berrezueta/widgets/registro/estilo_input_registro.dart';
-import 'package:instasafe/berrezueta/widgets/registro/validaciones_registro.dart';
+import 'package:instasafe/illescas/screens/comparadorfacial_ligero.dart';
+import 'package:instasafe/models/generadorplantilla.dart';
+import 'package:instasafe/illescas/screens/usuarioLigero.dart';
+import 'package:http/http.dart' as http;
 import 'package:instasafe/models/plantillafacial.dart';
+import 'dart:convert';
 import '../widgets/degradado_fondo_screen.dart';
+import 'package:instasafe/berrezueta/widgets/registro/validaciones_registro.dart';
 
 class RegistroUsuarioScreen extends StatefulWidget {
   const RegistroUsuarioScreen({super.key});
@@ -36,8 +41,6 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   int? rolSeleccionado;
   bool ocultarPassword = true;
 
-  String? plantillaFacialCodificada; // ✅ NUEVO: para guardar la plantilla facial
-
   void verificarEstadoFormulario() {
     setState(() {
       formularioValido = validarFormularioCompleto(
@@ -58,46 +61,10 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   @override
   void initState() {
     super.initState();
-    cedulaController.addListener(() {
-      final texto = cedulaController.text;
-      final limpio = texto.replaceAll(RegExp(r'[^0-9]'), '');
-      if (texto != limpio) {
-        cedulaController.text = limpio;
-        cedulaController.selection = TextSelection.collapsed(offset: limpio.length);
-      }
-      verificarEstadoFormulario();
-    });
-
-    nombreController.addListener(() {
-      final texto = nombreController.text;
-      final limpio = texto.replaceAll(RegExp(r'[^a-zA-ZÁÉÍÓÚÑáéíóúñ\s]'), '');
-      if (texto != limpio) {
-        nombreController.text = limpio;
-        nombreController.selection = TextSelection.collapsed(offset: limpio.length);
-      }
-      verificarEstadoFormulario();
-    });
-
-    apellidoController.addListener(() {
-      final texto = apellidoController.text;
-      final limpio = texto.replaceAll(RegExp(r'[^a-zA-ZÁÉÍÓÚÑáéíóúñ\s]'), '');
-      if (texto != limpio) {
-        apellidoController.text = limpio;
-        apellidoController.selection = TextSelection.collapsed(offset: limpio.length);
-      }
-      verificarEstadoFormulario();
-    });
-
-    telefonoController.addListener(() {
-      final texto = telefonoController.text;
-      final limpio = texto.replaceAll(RegExp(r'[^0-9+]'), '');
-      if (texto != limpio) {
-        telefonoController.text = limpio;
-        telefonoController.selection = TextSelection.collapsed(offset: limpio.length);
-      }
-      verificarEstadoFormulario();
-    });
-
+    cedulaController.addListener(verificarEstadoFormulario);
+    nombreController.addListener(verificarEstadoFormulario);
+    apellidoController.addListener(verificarEstadoFormulario);
+    telefonoController.addListener(verificarEstadoFormulario);
     emailController.addListener(verificarEstadoFormulario);
     passwordController.addListener(verificarEstadoFormulario);
   }
@@ -119,6 +86,20 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
     verificarEstadoFormulario();
   }
 
+  Future<List<UsuarioLigero>> obtenerUsuariosLigero() async {
+    final response = await http.get(
+      Uri.parse(
+        'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas',
+      ),
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((e) => UsuarioLigero.fromJson(e)).toList();
+    } else {
+      throw Exception('Error al obtener usuarios');
+    }
+  }
+
   void registrarUsuario() async {
     FocusScope.of(context).unfocus();
 
@@ -136,12 +117,45 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.teal)),
+        builder:
+            (context) => const Center(
+              child: CircularProgressIndicator(color: Colors.teal),
+            ),
       );
 
-      // ⚠️ Este embedding es de prueba. Sustituir con ML Kit real luego.
-      final plantilla = PlantillaFacial([0.25, 0.83, 0.62]); // <- Simulación
-      plantillaFacialCodificada = plantilla.toBase64();
+      final generador = GeneradorPlantillaFacial();
+      await generador.inicializarModelo();
+      final plantillaCodificada = await generador.generarDesdeImagen(
+        imagenSeleccionada!,
+      );
+
+      if (plantillaCodificada == null) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ No se pudo generar plantilla facial'),
+          ),
+        );
+        return;
+      }
+
+      final usuarios = await obtenerUsuariosLigero();
+      final resultadoComparacion = ComparadorFacialLigero.comparar(
+        PlantillaFacial.fromBase64(plantillaCodificada),
+        usuarios,
+      );
+
+      if (resultadoComparacion != null) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '❌ Ya existe un usuario con rostro similar (cédula: ${resultadoComparacion['usuario'].cedula})',
+            ),
+          ),
+        );
+        return;
+      }
 
       final resultado = await enviarDatosRegistroUsuario(
         cedula: cedulaController.text.trim(),
@@ -152,20 +166,23 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
         idResponsable: 1,
         fechaNacimiento: fechaNacimiento ?? DateTime(2000, 1, 1),
         contrasena: passwordController.text.trim(),
-        idRol: 2,
+        idRol: rolSeleccionado ?? 2,
         imagen: imagenSeleccionada!,
         accessToken: accessToken,
         carpetaDriveId: carpetaDriveId,
-        plantillaFacial: plantillaFacialCodificada!, plantillaFacialBase64: '',
+        plantillaFacial: plantillaCodificada,
+        plantillaFacialBase64: plantillaCodificada,
       );
 
       Navigator.of(context).pop();
+      final mensaje =
+          resultado.startsWith('ok')
+              ? '✅ Usuario registrado con éxito'
+              : resultado;
 
-      final mensaje = resultado.startsWith('ok')
-          ? '✅ Usuario registrado con éxito'
-          : resultado;
-
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(mensaje)));
     }
   }
 
@@ -197,6 +214,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                   const SizedBox(height: 10),
                   IconoCamaraRegistro(onFotoCambiada: manejarCambioFoto),
                   const SizedBox(height: 30),
+
                   EstiloInputRegistro(
                     etiqueta: 'Cédula',
                     textoPlaceholder: '0123456789',
@@ -204,13 +222,15 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     tipoCampo: 'cedula',
                     controller: cedulaController,
                   ),
+
                   EstiloInputRegistro(
                     etiqueta: 'Nombre',
-                    textoPlaceholder: 'Tanya Myroniuk',
+                    textoPlaceholder: 'Tanya',
                     icono: Icons.person,
                     tipoCampo: 'nombre',
                     controller: nombreController,
                   ),
+
                   EstiloInputRegistro(
                     etiqueta: 'Apellido',
                     textoPlaceholder: 'Perez Andrade',
@@ -218,6 +238,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     tipoCampo: 'apellido',
                     controller: apellidoController,
                   ),
+
                   EstiloInputRegistro(
                     etiqueta: 'Teléfono',
                     textoPlaceholder: '+593...',
@@ -225,121 +246,158 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     tipoCampo: 'telefono',
                     controller: telefonoController,
                   ),
-                  EstiloInputRegistro(
-                    etiqueta: 'Email',
-                    textoPlaceholder: 'correo@ejemplo.com',
-                    icono: Icons.email,
-                    tipoCampo: 'email',
-                    controller: emailController,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: passwordController,
-                    obscureText: ocultarPassword,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña',
-                      labelStyle: const TextStyle(color: Colors.white),
-                      hintText: '********',
-                      hintStyle: const TextStyle(color: Colors.white70),
-                      prefixIcon: const Icon(Icons.lock, color: Colors.white),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          ocultarPassword ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.white70,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            ocultarPassword = !ocultarPassword;
-                          });
-                        },
-                      ),
-                      enabledBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
-                      ),
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.blueAccent),
-                      ),
-                    ),
-                    style: const TextStyle(color: Colors.white),
-                    validator: (value) => ValidacionesRegistro.validarPassword(value ?? ''),
-                    onChanged: (_) => verificarEstadoFormulario(),
-                  ),
-                  const SizedBox(height: 20),
-                  ListTile(
-                    title: Text(
-                      fechaNacimiento == null
-                          ? 'Selecciona tu fecha de nacimiento'
-                          : 'Fecha: ${fechaNacimiento!.toLocal().toString().split(" ")[0]}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    trailing: const Icon(Icons.calendar_today, color: Colors.white),
-                    onTap: () async {
-                      final seleccionada = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime(2000, 1, 1),
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime.now(),
-                      );
-                      if (seleccionada != null) {
-                        setState(() {
-                          fechaNacimiento = seleccionada;
+
+                  // 📅 Fecha de nacimiento (actualizado y estilizado)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: GestureDetector(
+                      onTap: () async {
+                        final now = DateTime.now();
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime(2000, 1, 1),
+                          firstDate: DateTime(1900),
+                          lastDate: now,
+                          helpText: 'Selecciona tu fecha de nacimiento',
+                          cancelText: 'Cancelar',
+                          confirmText: 'Aceptar',
+                          builder: (context, child) {
+                            return Theme(
+                              data: ThemeData.dark().copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: Colors.teal,
+                                  onPrimary: Colors.white,
+                                  surface: Color(0xFF0A2240),
+                                  onSurface: Colors.white,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setState(() => fechaNacimiento = picked);
                           verificarEstadoFormulario();
-                        });
-                      }
-                    },
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Fecha de nacimiento',
+                          labelStyle: TextStyle(color: Colors.white),
+                          prefixIcon: Icon(Icons.calendar_today, color: Colors.white),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white70),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white),
+                          ),
+                        ),
+                        child: Text(
+                          fechaNacimiento != null
+                              ? '${fechaNacimiento!.day}/${fechaNacimiento!.month}/${fechaNacimiento!.year}'
+                              : 'Seleccionar fecha',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 10),
+
+                  // ⬇ Género y Rol (igual que antes)
                   DropdownButtonFormField<String>(
                     value: generoSeleccionado,
                     decoration: const InputDecoration(
                       labelText: 'Género',
                       labelStyle: TextStyle(color: Colors.white),
+                      prefixIcon: Icon(Icons.wc, color: Colors.white),
                       enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white70),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
                         borderSide: BorderSide(color: Colors.white),
                       ),
                     ),
-                    dropdownColor: Colors.black,
-                    items: ['Masculino', 'Femenino'].map((genero) {
-                      return DropdownMenuItem(
-                        value: genero,
-                        child: Text(genero),
-                      );
-                    }).toList(),
+                    dropdownColor: const Color(0xFF0A2240),
+                    iconEnabledColor: Colors.white,
+                    style: const TextStyle(color: Colors.white),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'Masculino',
+                        child: Text('Masculino'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Femenino',
+                        child: Text('Femenino'),
+                      ),
+                      DropdownMenuItem(value: 'Otro', child: Text('Gei')),
+                    ],
                     onChanged: (valor) {
-                      setState(() {
-                        generoSeleccionado = valor;
-                        verificarEstadoFormulario();
-                      });
+                      setState(() => generoSeleccionado = valor);
+                      verificarEstadoFormulario();
                     },
                   ),
+
                   const SizedBox(height: 10),
+
                   DropdownButtonFormField<int>(
                     value: rolSeleccionado,
                     decoration: const InputDecoration(
                       labelText: 'Rol',
                       labelStyle: TextStyle(color: Colors.white),
+                      prefixIcon: Icon(Icons.badge, color: Colors.white),
                       enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white70),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
                         borderSide: BorderSide(color: Colors.white),
                       ),
                     ),
-                    dropdownColor: Colors.black,
-                    items: [2, 3, 4].map((rol) {
-                      return DropdownMenuItem(
-                        value: rol,
-                        child: Text('Rol $rol'),
-                      );
-                    }).toList(),
+                    dropdownColor: const Color(0xFF0A2240),
+                    iconEnabledColor: Colors.white,
+                    style: const TextStyle(color: Colors.white),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('Administrador')),
+                      DropdownMenuItem(value: 2, child: Text('Estudiante')),
+                      DropdownMenuItem(value: 3, child: Text('Profesor')),
+                    ],
                     onChanged: (valor) {
-                      setState(() {
-                        rolSeleccionado = valor;
-                        verificarEstadoFormulario();
-                      });
+                      setState(() => rolSeleccionado = valor);
+                      verificarEstadoFormulario();
                     },
                   ),
+
+                  const SizedBox(height: 10),
+
+                  // ✅ Correo y Contraseña al final como debe ser
+                  EstiloInputRegistro(
+                    etiqueta: 'Correo electrónico',
+                    textoPlaceholder: 'correo@ejemplo.com',
+                    icono: Icons.email,
+                    tipoCampo: 'email',
+                    controller: emailController,
+                  ),
+
+                  EstiloInputRegistro(
+                    etiqueta: 'Contraseña',
+                    textoPlaceholder: '••••••••',
+                    icono: Icons.lock,
+                    tipoCampo: 'password',
+                    controller: passwordController,
+                    esContrasena: true,
+                    ocultarTexto: ocultarPassword,
+                    onToggleVisibilidad: () {
+                      setState(() => ocultarPassword = !ocultarPassword);
+                    },
+                  ),
+
                   const SizedBox(height: 30),
-                  _RegistrarButton(onPressed: formularioValido ? registrarUsuario : null),
+                  _RegistrarButton(
+                    onPressed: formularioValido ? registrarUsuario : null,
+                  ),
                   const SizedBox(height: 20),
-                  const Text('©IstaSafe', style: TextStyle(color: Colors.white70)),
+                  const Text(
+                    '©IstaSafe',
+                    style: TextStyle(color: Colors.white70),
+                  ),
                 ],
               ),
             ),
@@ -367,10 +425,7 @@ class _RegistrarButton extends StatelessWidget {
         ),
         child: const Text(
           'Registrar',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );

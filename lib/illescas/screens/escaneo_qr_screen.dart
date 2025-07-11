@@ -1,12 +1,18 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:instasafe/illescas/screens/usuarioLigero.dart';
+
+import 'package:instasafe/models/plantillafacial.dart';
+
+import 'package:instasafe/models/generadorplantilla.dart';
+import 'package:instasafe/illescas/screens/comparadorfacial_ligero.dart';
+import 'package:instasafe/illescas/screens/verificar.dart';
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
 import 'package:instasafe/berrezueta/widgets/menu_lateral_drawer_widget.dart';
-
-import 'package:instasafe/illescas/screens/verificar.dart'; // 👈 Asegúrate de importar
 
 class EscaneoQRScreen extends StatelessWidget {
   const EscaneoQRScreen({super.key});
@@ -128,46 +134,106 @@ class EscaneoQRScreen extends StatelessWidget {
   }
 
   Future<void> tomarFotoYVerificar(BuildContext context) async {
-    try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.camera);
+  final mounted = context.mounted;
+  try {
+    final picker = ImagePicker();
 
-      if (pickedFile == null) {
+    // Mostrar loader inicial
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    // 📸 Forzar cámara trasera
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.rear,
+    );
+
+    Navigator.of(context).pop(); // Cerrar loader
+
+    if (pickedFile == null) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No se tomó ninguna foto.')),
         );
-        return;
       }
+      return;
+    }
 
-      final bytes = await pickedFile.readAsBytes();
+    final generador = GeneradorPlantillaFacial();
+    await generador.inicializarModelo();
 
-      // 🔁 Cambia esta URL por tu IP real y puerto correcto
-      final url = Uri.parse('http://192.168.68.122:8090/api/verificacion/facial');
+    // Mostrar loader de procesamiento
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
 
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/octet-stream'},
-        body: bytes,
-      );
+    final plantillaBase64 =
+        await generador.generarDesdeImagen(File(pickedFile.path));
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = jsonDecode(response.body);
+    Navigator.of(context).pop(); // Cerrar loader
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VerificacionResultadoScreen(datosUsuario: jsonData),
-          ),
-        );
-      } else {
+    if (plantillaBase64 == null) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error del servidor (${response.statusCode})')),
+          const SnackBar(content: Text('❌ No se detectó ningún rostro válido.')),
         );
       }
-    } catch (e) {
+      return;
+    }
+
+    final plantillaCapturada = PlantillaFacial.fromBase64(plantillaBase64);
+
+    // Obtener lista de plantillas desde el backend
+    final response = await http.get(
+      Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas'),
+    );
+
+    if (response.statusCode != 200) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error al obtener plantillas (${response.statusCode})')),
+        );
+      }
+      return;
+    }
+
+    final List<dynamic> jsonList = jsonDecode(response.body);
+    final usuarios = jsonList.map((e) => UsuarioLigero.fromJson(e)).toList();
+
+    final resultado = ComparadorFacialLigero.comparar(plantillaCapturada, usuarios);
+
+    if (!mounted) return;
+
+    if (resultado != null) {
+      final usuario = resultado['usuario'] as UsuarioLigero;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerificacionResultadoScreen(datosUsuario: {
+            'cedula': usuario.cedula,
+            'mensaje': '✅ Acceso permitido',
+          }),
+        ),
+      );
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error al verificar: $e')),
+        const SnackBar(content: Text('😕 No se encontró coincidencia.')),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      Navigator.of(context).pop(); // Por si quedó algún loader abierto
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error inesperado: $e')),
       );
     }
   }
+}
+
 }

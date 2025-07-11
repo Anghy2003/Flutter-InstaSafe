@@ -1,80 +1,162 @@
 import 'dart:io';
+import 'dart:math';
+import 'dart:ui';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-import 'package:instasafe/models/plantillafacial.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
+import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:instasafe/models/plantillafacial.dart';
 
 class GeneradorPlantillaFacial {
-  late final Interpreter _interpreter;
+  Interpreter? _interpreter;
 
   GeneradorPlantillaFacial();
 
   Future<void> inicializarModelo() async {
-    _interpreter = await Interpreter.fromAsset('facenet.tflite');
+    if (_interpreter != null) return; // Ya está cargado
+
+    final options = InterpreterOptions()
+      ..threads = 4
+      ..useNnApiForAndroid = true
+      ..addDelegate(XNNPackDelegate());
+
+    try {
+      _interpreter = await Interpreter.fromAsset(
+        'assets/modelos/mobilefacenet_ente_web.tflite',
+        options: options,
+      );
+    } catch (e) {
+      print('❌ Error cargando el modelo: $e');
+    }
   }
 
   Future<String?> generarDesdeImagen(File imagen) async {
-    // Paso 1: Detectar rostro
+    if (_interpreter == null) {
+      print('❌ Modelo no inicializado');
+      return null;
+    }
+
     final faceDetector = FaceDetector(
       options: FaceDetectorOptions(
         performanceMode: FaceDetectorMode.accurate,
         enableLandmarks: true,
+        enableClassification: true,
       ),
     );
 
-    final inputImage = InputImage.fromFile(imagen);
-    final faces = await faceDetector.processImage(inputImage);
+    try {
+      final inputImage = InputImage.fromFile(imagen);
+      final faces = await faceDetector.processImage(inputImage);
+      await faceDetector.close();
 
-    if (faces.isEmpty) {
-      print('❌ No se detectó ningún rostro.');
+      if (faces.isEmpty) {
+        print('❌ No se detectó ningún rostro.');
+        return null;
+      }
+
+      if (faces.length > 1) {
+        print('❌ Hay más de un rostro en la imagen.');
+        return null;
+      }
+
+      final face = faces.first;
+
+      if ((face.smilingProbability ?? 0) > 0.4) {
+        print('❌ Sonrisa detectada.');
+        return null;
+      }
+
+      if ((face.headEulerAngleY ?? 0).abs() > 10 || (face.headEulerAngleZ ?? 0).abs() > 10) {
+        print('❌ El rostro no está bien alineado.');
+        return null;
+      }
+
+      if ((face.leftEyeOpenProbability ?? 1.0) < 0.3 ||
+          (face.rightEyeOpenProbability ?? 1.0) < 0.1) {
+        print('❌ Ojos posiblemente cerrados o lentes oscuros.');
+        return null;
+      }
+
+      final imageData = await imagen.readAsBytes();
+      final original = img.decodeImage(imageData);
+      if (original == null) {
+        print('❌ No se pudo decodificar la imagen.');
+        return null;
+      }
+
+      final bbox = face.boundingBox;
+      final centerX = bbox.left + bbox.width / 2;
+      final centerY = bbox.top + bbox.height / 2;
+      final imageCenterX = original.width / 2;
+      final imageCenterY = original.height / 2;
+
+      if ((centerX - imageCenterX).abs() > original.width * 0.2 ||
+          (centerY - imageCenterY).abs() > original.height * 0.2) {
+        print('❌ El rostro no está centrado.');
+        return null;
+      }
+
+      final cropRect = _expandBoundingBox(bbox, original.width, original.height);
+      final cropped = img.copyCrop(
+        original,
+        cropRect.left.toInt(),
+        cropRect.top.toInt(),
+        cropRect.width.toInt(),
+        cropRect.height.toInt(),
+      );
+
+      final resized = img.copyResize(cropped, width: 112, height: 112);
+
+      final input = List.generate(
+        1,
+        (_) => List.generate(
+          112,
+          (y) => List.generate(112, (x) {
+            final pixel = resized.getPixel(x, y);
+            return [
+              (img.getRed(pixel) - 127.5) / 128.0,
+              (img.getGreen(pixel) - 127.5) / 128.0,
+              (img.getBlue(pixel) - 127.5) / 128.0,
+            ];
+          }),
+        ),
+      );
+
+      final output = List.filled(192, 0.0).reshape([1, 192]);
+
+      try {
+        _interpreter!.run(input, output);
+      } catch (e) {
+        print('❌ Error al ejecutar el modelo: $e');
+        return null;
+      }
+
+      final vector = List<double>.from(output[0]);
+      final norm = sqrt(vector.fold(0.0, (sum, val) => sum + val * val));
+      final normalized = vector.map((v) => v / norm).toList();
+
+      final plantilla = PlantillaFacial(normalized);
+      return plantilla.toBase64();
+    } catch (e) {
+      print('❌ Error general en procesamiento de imagen: $e');
       return null;
     }
+  }
 
-    final face = faces.first;
+  Rect _expandBoundingBox(
+    Rect bbox,
+    int imgWidth,
+    int imgHeight, {
+    double factor = 1.4,
+  }) {
+    final centerX = bbox.left + bbox.width / 2;
+    final centerY = bbox.top + bbox.height / 2;
+    final newSize = max(bbox.width, bbox.height) * factor;
 
-    // Paso 2: Leer y recortar imagen
-    final imageData = await imagen.readAsBytes();
-    final original = img.decodeImage(imageData);
-    if (original == null) return null;
+    final left = max(centerX - newSize / 2, 0).toDouble();
+    final top = max(centerY - newSize / 2, 0).toDouble();
+    final right = min(centerX + newSize / 2, imgWidth.toDouble());
+    final bottom = min(centerY + newSize / 2, imgHeight.toDouble());
 
-    final cropRect = face.boundingBox;
-    final int cropX = cropRect.left.toInt().clamp(0, original.width - 1);
-    final int cropY = cropRect.top.toInt().clamp(0, original.height - 1);
-    final int cropW = cropRect.width.toInt().clamp(1, original.width - cropX);
-    final int cropH = cropRect.height.toInt().clamp(1, original.height - cropY);
-
-    final cropped = img.copyCrop(
-  original,
-  cropX,
-  cropY,
-  cropW,
-  cropH,
-);
-
-    // Paso 3: Redimensionar a 112x112
-    final resized = img.copyResize(cropped, width: 112, height: 112);
-
-    // Paso 4: Preparar input normalizado RGB
-    final input = List.generate(1, (_) => List.generate(112, (y) => List.generate(112, (x) {
-      final r = img.getRed(resized.getPixel(x, y)).toDouble();
-      final g = img.getGreen(resized.getPixel(x, y)).toDouble();
-      final b = img.getBlue(resized.getPixel(x, y)).toDouble();
-      return [
-        (r - 128) / 128.0,
-        (g - 128) / 128.0,
-        (b - 128) / 128.0,
-      ];
-    })));
-
-    // Paso 5: Output de 128
-    final output = List.filled(128, 0.0).reshape([1, 128]);
-
-    // Paso 6: Ejecutar el modelo
-    _interpreter.run(input, output);
-    final vector = List<double>.from(output[0]);
-
-    // Paso 7: Convertir a base64
-    final plantilla = PlantillaFacial(vector);
-    return plantilla.toBase64();
+    return Rect.fromLTRB(left, top, right, bottom);
   }
 }

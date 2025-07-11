@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:instasafe/berrezueta/widgets/menuPrincipal/boton_iniciar_sesion_google.dart';
 import 'package:intl/intl.dart';
 
@@ -7,7 +8,7 @@ import '../widgets/menuPrincipal/tarjeta_boton_menu_principal.dart';
 import '../widgets/degradado_fondo_screen.dart';
 
 class MenuPrincipalScreen extends StatelessWidget {
-  final String nombreUsuario = 'Angie';
+  final String nombreUsuario = UsuarioActual.nombre ?? 'Usuario';
 
   String _obtenerFecha() {
     final now = DateTime.now();
@@ -64,9 +65,10 @@ class MenuPrincipalScreen extends StatelessWidget {
                 SizedBox(height: alto * 0.02),
                 CircleAvatar(
                   radius: ancho * 0.18,
-                  backgroundImage: const NetworkImage(
-                    'https://eduv.tecazuay.edu.ec/pluginfile.php/40622/user/icon/academi/f1?rev=594406',
-                  ),
+                  backgroundImage:NetworkImage(
+                              UsuarioActual.fotoUrl ??
+                                  'https://via.placeholder.com/150',
+                            ),
                 ),
                 SizedBox(height: alto * 0.01),
                 Text(
