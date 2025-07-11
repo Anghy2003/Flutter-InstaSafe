@@ -15,7 +15,7 @@ class ComparadorFacialLigero {
   PlantillaFacial plantillaCapturada,
   List<UsuarioLigero> usuarios, {
   double umbral = 0.70,
-  double umbralAdvertencia = 0.80,
+  double umbralAdvertencia = 0.90,
 }) {
   double distanciaMinima = double.infinity;
   UsuarioLigero? usuarioCoincidente;
