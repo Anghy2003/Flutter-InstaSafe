@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:instasafe/suqui/services/qr_service.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:instasafe/illescas/screens/verificar.dart';
 
@@ -29,54 +30,58 @@ class _QrScannerScreenState extends State<QrScannerScreen> with SingleTickerProv
     super.dispose();
   }
 
-  void _procesarQR(String rawValue) async {
-    _escaneado = true;
-    print('📥 QR detectado: $rawValue');
+ void _procesarQR(String rawValue) async {
+  _escaneado = true;
+  print('📥 QR detectado: $rawValue');
 
-    try {
-      final Map<String, dynamic> datosQR = jsonDecode(rawValue);
-      final cedula = datosQR['cedula'];
-      print('🔍 Consultando datos de usuario con cédula: $cedula');
+  try {
+    final cedula = QrService.decryptAndValidate(rawValue);
+    if (cedula == null) throw Exception('QR inválido o expirado');
 
-      final response = await http.get(
-        Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/cedula/$cedula'),
-      );
+    print('🔍 Consultando datos de usuario con cédula: $cedula');
 
-      print('📡 Respuesta usuario: ${response.statusCode}');
-      if (response.statusCode != 200) {
-        throw Exception('Usuario no encontrado');
-      }
+    final response = await http.get(
+      Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/cedula/$cedula'),
+    );
 
-      final usuario = jsonDecode(response.body);
-      print('✅ Usuario obtenido: ${usuario['nombre']}');
+    print('📡 Respuesta usuario: ${response.statusCode}');
+    print('📦 Headers: ${response.headers}');
+    print('📄 Body de la respuesta: ${response.body}');
+    print('📏 Body length: ${response.body.length}');
 
-      final datosUsuario = {
-        'id': usuario['id'],
-        'cedula': usuario['cedula'],
-        'nombre': '${usuario['nombre']} ${usuario['apellido']}',
-        'apellido': usuario['apellido'],
-        'email': usuario['correo'] ?? '',
-        'rol': usuario['id_rol']?['nombre'] ?? 'Sin rol',
-        'foto': usuario['foto'],
-        'acceso': usuario['estado'] ?? true,
-      };
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VerificacionResultadoScreen(
-            datosUsuario: datosUsuario,
-          ),
-        ),
-      );
-    } catch (e) {
-      print('❌ Error procesando QR: $e');
-      _escaneado = false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error procesando QR: $e')),
-      );
+    if (response.statusCode != 200 || response.body.trim().isEmpty) {
+      throw Exception('Usuario no encontrado o sin datos');
     }
+
+    final usuario = jsonDecode(response.body);
+    print('✅ Usuario obtenido: ${usuario['nombre']}');
+
+    final datosUsuario = {
+      'id': usuario['id'],
+      'cedula': usuario['cedula'],
+      'nombre': '${usuario['nombre']} ${usuario['apellido']}',
+      'apellido': usuario['apellido'],
+      'email': usuario['correo'] ?? '',
+      'rol': usuario['id_rol']?['nombre'] ?? 'Sin rol',
+      'foto': usuario['foto'],
+      'acceso': usuario['estado'] ?? true,
+    };
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VerificacionResultadoScreen(datosUsuario: datosUsuario),
+      ),
+    );
+  } catch (e) {
+    print('❌ Error procesando QR: $e');
+    _escaneado = false;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('❌ Error procesando QR: $e')),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
