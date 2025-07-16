@@ -3,6 +3,7 @@ import 'dart:convert';
 
 class UsuarioActual {
   // 🌐 Datos de autenticación
+  static int? id;
   static String? accessToken;
   static String? carpetaDriveId;
   static String? fotoUrl;
@@ -53,6 +54,7 @@ class UsuarioActual {
         final data = json.decode(response.body);
 
         // 🎯 Asignación de atributos individuales
+        id = data['id'];
         correo = data['correo'];
         cedula = data['cedula'];
         nombre = data['nombre'];
@@ -61,8 +63,16 @@ class UsuarioActual {
         idresponsable = data['idresponsable'];
         fechanacimiento = DateTime.tryParse(data['fechanacimiento'] ?? '');
         contrasena = data['contrasena'];
-        idRol = data['idRol'];
+        idRol =
+            (data['id_rol'] is Map)
+                ? data['id_rol']['id'] ?? 0
+                : data['id_rol'] ?? 0;
         plantillaFacial = data['plantillaFacial'];
+
+        print('UsuarioActual.id: ${UsuarioActual.id}'); // ← ¿Por ejemplo 10?
+        print(
+          'UsuarioActual.idRol: ${UsuarioActual.idRol}',
+        ); // ← ¿Por ejemplo 2?
 
         return true;
       } else {

@@ -1,162 +1,206 @@
 import 'dart:io';
-import 'dart:math';
-import 'dart:ui';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:instasafe/models/plantillafacial.dart';
+import 'package:instasafe/services/face_ml/face_alignment/similarity_transform.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'dart:ui';
 
 class GeneradorPlantillaFacial {
-  Interpreter? _interpreter;
-
-  GeneradorPlantillaFacial();
+  late final Interpreter _interpreterFaceNet;
+  late final Interpreter _interpreterBlur;
+  late final Interpreter _interpreterAntiSpoof;
+  late final Interpreter _interpreterEmotion;
+  bool _cargado = false;
 
   Future<void> inicializarModelo() async {
-    if (_interpreter != null) return; // Ya está cargado
-
+    if (_cargado) return;
     final options = InterpreterOptions()
       ..threads = 4
       ..useNnApiForAndroid = true
       ..addDelegate(XNNPackDelegate());
 
     try {
-      _interpreter = await Interpreter.fromAsset(
+      _interpreterBlur = await Interpreter.fromAsset(
+        'assets/modelos/blur_detection_model.tflite',
+        options: options,
+      );
+      _interpreterFaceNet = await Interpreter.fromAsset(
         'assets/modelos/mobilefacenet_ente_web.tflite',
         options: options,
       );
+      _interpreterAntiSpoof = await Interpreter.fromAsset(
+        'assets/modelos/FaceAntiSpoofing.tflite',
+        options: options,
+      );
+      _interpreterEmotion = await Interpreter.fromAsset(
+        'assets/modelos/emotion_detection_model.tflite',
+        options: options,
+      );
+      _cargado = true;
+      print('✅ Todos los modelos cargados correctamente');
     } catch (e) {
-      print('❌ Error cargando el modelo: $e');
+      print('❌ Error cargando modelos: $e');
+      rethrow;
     }
   }
 
-  Future<String?> generarDesdeImagen(File imagen) async {
-    if (_interpreter == null) {
-      print('❌ Modelo no inicializado');
+  Future<Map<String, dynamic>> generarDesdeImagen(File imagen) async {
+    try {
+      if (!_cargado) {
+        return {
+          'plantilla': null,
+          'mensaje': '❌ Los modelos aún no están listos.'
+        };
+      }
+
+      final bytes = await imagen.readAsBytes();
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) {
+        return {
+          'plantilla': null,
+          'mensaje': '❌ No se pudo leer la imagen.'
+        };
+      }
+
+      final puntos = await detectarLandmarks(decoded);
+      if (puntos.length != 5) {
+        return {
+          'plantilla': null,
+          'mensaje': '❌ No se detectaron suficientes puntos faciales.'
+        };
+      }
+
+      final (alineacion, valido) = SimilarityTransform().estimate(puntos);
+      if (!valido) {
+        return {
+          'plantilla': null,
+          'mensaje': '❌ Transformación afín inválida.'
+        };
+      }
+
+      final rostroAlineado = _aplicarTransformacion(decoded, alineacion.affineMatrix);
+      final inputMatrix = _preprocesarRGB(rostroAlineado);
+
+      if (!await esRostroReal(inputMatrix)) {
+        return {
+          'plantilla': null,
+          'mensaje': '❌ Rostro no válido (spoofing).'
+        };
+      }
+
+      final emocion = await detectarEmocion(inputMatrix);
+      print('🔍 Emoción detectada: $emocion');
+
+      // ✅ Aceptar cualquier emoción facial
+
+      final output = List.filled(192, 0.0).reshape([1, 192]);
+      _interpreterFaceNet.run(inputMatrix, output);
+      final vector = List<double>.from(output[0]);
+      final norm = math.sqrt(vector.fold(0.0, (s, v) => s + v * v));
+      final normalizado = vector.map((v) => v / norm).toList();
+      final plantilla = PlantillaFacial(normalizado);
+      return {'plantilla': plantilla.toBase64(), 'mensaje': null};
+    } catch (e) {
+      print('❌ Error generando plantilla: ${e.toString()}');
+      return {
+        'plantilla': null,
+        'mensaje': '❌ Error inesperado generando plantilla facial: $e'
+      };
+    }
+  }
+
+  List<List<List<List<double>>>> _preprocesarRGB(img.Image rostro) {
+    final imgResized = img.copyResize(rostro, width: 112, height: 112);
+    return [
+      List.generate(112, (y) => List.generate(112, (x) {
+        final pixel = imgResized.getPixel(x, y);
+        return [
+          pixel.r / 255.0,
+          pixel.g / 255.0,
+          pixel.b / 255.0,
+        ];
+      }))
+    ];
+  }
+
+  Future<bool> esRostroReal(List<List<List<List<double>>>> inputMatrix) async {
+    try {
+      final output = List.filled(2, 0.0).reshape([1, 2]);
+      _interpreterAntiSpoof.run(inputMatrix, output);
+      return output[0][1] > output[0][0];
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<String?> detectarEmocion(List<List<List<List<double>>>> inputMatrix) async {
+    try {
+      final output = List.filled(7, 0.0).reshape([1, 7]);
+      _interpreterEmotion.run(inputMatrix, output);
+      final emociones = ['Enojo', 'Disgusto', 'Miedo', 'Feliz', 'Triste', 'Sorpresa', 'Neutral'];
+      final scores = output[0];
+      double maxScore = -1;
+      int index = -1;
+      for (int i = 0; i < scores.length; i++) {
+        if (scores[i] > maxScore) {
+          maxScore = scores[i];
+          index = i;
+        }
+      }
+      return index != -1 ? emociones[index] : null;
+    } catch (_) {
       return null;
     }
+  }
 
-    final faceDetector = FaceDetector(
+  Future<List<List<double>>> detectarLandmarks(img.Image imagen) async {
+    final tempFile = await _crearArchivoTemporal(Uint8List.fromList(img.encodeJpg(imagen)));
+    final inputImage = InputImage.fromFile(tempFile);
+
+    final detector = FaceDetector(
       options: FaceDetectorOptions(
-        performanceMode: FaceDetectorMode.accurate,
         enableLandmarks: true,
-        enableClassification: true,
+        enableContours: false,
       ),
     );
 
-    try {
-      final inputImage = InputImage.fromFile(imagen);
-      final faces = await faceDetector.processImage(inputImage);
-      await faceDetector.close();
+    final faces = await detector.processImage(inputImage);
+    await detector.close();
 
-      if (faces.isEmpty) {
-        print('❌ No se detectó ningún rostro.');
-        return null;
-      }
+    if (faces.isEmpty) return [];
 
-      if (faces.length > 1) {
-        print('❌ Hay más de un rostro en la imagen.');
-        return null;
-      }
+    final face = faces.first;
+    final landmarks = face.landmarks;
 
-      final face = faces.first;
+    final leftEye = landmarks[FaceLandmarkType.leftEye]?.position;
+    final rightEye = landmarks[FaceLandmarkType.rightEye]?.position;
+    final nose = landmarks[FaceLandmarkType.noseBase]?.position;
 
-      if ((face.smilingProbability ?? 0) > 0.4) {
-        print('❌ Sonrisa detectada.');
-        return null;
-      }
+    if ([leftEye, rightEye, nose].any((p) => p == null)) return [];
 
-      if ((face.headEulerAngleY ?? 0).abs() > 10 || (face.headEulerAngleZ ?? 0).abs() > 10) {
-        print('❌ El rostro no está bien alineado.');
-        return null;
-      }
+    final mouthLeft = Offset(nose!.x - 15.0, nose.y + 30.0);
+    final mouthRight = Offset(nose.x + 15.0, nose.y + 30.0);
 
-      if ((face.leftEyeOpenProbability ?? 1.0) < 0.3 ||
-          (face.rightEyeOpenProbability ?? 1.0) < 0.1) {
-        print('❌ Ojos posiblemente cerrados o lentes oscuros.');
-        return null;
-      }
-
-      final imageData = await imagen.readAsBytes();
-      final original = img.decodeImage(imageData);
-      if (original == null) {
-        print('❌ No se pudo decodificar la imagen.');
-        return null;
-      }
-
-      final bbox = face.boundingBox;
-      final centerX = bbox.left + bbox.width / 2;
-      final centerY = bbox.top + bbox.height / 2;
-      final imageCenterX = original.width / 2;
-      final imageCenterY = original.height / 2;
-
-      if ((centerX - imageCenterX).abs() > original.width * 0.2 ||
-          (centerY - imageCenterY).abs() > original.height * 0.2) {
-        print('❌ El rostro no está centrado.');
-        return null;
-      }
-
-      final cropRect = _expandBoundingBox(bbox, original.width, original.height);
-      final cropped = img.copyCrop(
-        original,
-        cropRect.left.toInt(),
-        cropRect.top.toInt(),
-        cropRect.width.toInt(),
-        cropRect.height.toInt(),
-      );
-
-      final resized = img.copyResize(cropped, width: 112, height: 112);
-
-      final input = List.generate(
-        1,
-        (_) => List.generate(
-          112,
-          (y) => List.generate(112, (x) {
-            final pixel = resized.getPixel(x, y);
-            return [
-              (img.getRed(pixel) - 127.5) / 128.0,
-              (img.getGreen(pixel) - 127.5) / 128.0,
-              (img.getBlue(pixel) - 127.5) / 128.0,
-            ];
-          }),
-        ),
-      );
-
-      final output = List.filled(192, 0.0).reshape([1, 192]);
-
-      try {
-        _interpreter!.run(input, output);
-      } catch (e) {
-        print('❌ Error al ejecutar el modelo: $e');
-        return null;
-      }
-
-      final vector = List<double>.from(output[0]);
-      final norm = sqrt(vector.fold(0.0, (sum, val) => sum + val * val));
-      final normalized = vector.map((v) => v / norm).toList();
-
-      final plantilla = PlantillaFacial(normalized);
-      return plantilla.toBase64();
-    } catch (e) {
-      print('❌ Error general en procesamiento de imagen: $e');
-      return null;
-    }
+    return [
+      [leftEye!.x.toDouble(), leftEye.y.toDouble()],
+      [rightEye!.x.toDouble(), rightEye.y.toDouble()],
+      [nose.x.toDouble(), nose.y.toDouble()],
+      [mouthLeft.dx, mouthLeft.dy],
+      [mouthRight.dx, mouthRight.dy],
+    ];
   }
 
-  Rect _expandBoundingBox(
-    Rect bbox,
-    int imgWidth,
-    int imgHeight, {
-    double factor = 1.4,
-  }) {
-    final centerX = bbox.left + bbox.width / 2;
-    final centerY = bbox.top + bbox.height / 2;
-    final newSize = max(bbox.width, bbox.height) * factor;
+  Future<File> _crearArchivoTemporal(Uint8List bytes) async {
+    final tempDir = await Directory.systemTemp.createTemp('instasafe_temp_');
+    final file = File('${tempDir.path}/temp_face.jpg');
+    await file.writeAsBytes(bytes);
+    return file;
+  }
 
-    final left = max(centerX - newSize / 2, 0).toDouble();
-    final top = max(centerY - newSize / 2, 0).toDouble();
-    final right = min(centerX + newSize / 2, imgWidth.toDouble());
-    final bottom = min(centerY + newSize / 2, imgHeight.toDouble());
-
-    return Rect.fromLTRB(left, top, right, bottom);
+  img.Image _aplicarTransformacion(img.Image original, List<List<double>> matriz) {
+    return img.copyResize(original, width: 112, height: 112);
   }
 }
