@@ -39,6 +39,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/modelos/mobilefacenet_ente_web.tflite
     - assets/modelos/blazeface_back_ente_web.tflite
@@ -46,3 +47,8 @@ flutter:
     - assets/modelos/emotion_detection_model.tflite
     - assets/modelos/FaceAntiSpoofing.tflite
     - assets/image/
+
+  fonts:
+    - family: instasafe
+      fonts:
+        - asset: assets/fonts/instasafe.ttf

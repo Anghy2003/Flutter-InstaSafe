@@ -93,23 +93,37 @@ class FacePlusService {
     final faceToken = detectData['faces'][0]['face_token'];
     log('🆔 face_token detectado: $faceToken');
 
-    // ➕ Agregar al FaceSet
-    log('➕ Agregando rostro al FaceSet...');
-    final addResponse = await http.post(
-      Uri.parse('https://api-us.faceplusplus.com/facepp/v3/faceset/addface'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {
-        'api_key': _apiKey,
-        'api_secret': _apiSecret,
-        'outer_id': _outerId,
-        'face_tokens': faceToken,
-      },
-    ).timeout(const Duration(seconds: 15));
+    // ➕ Intentar agregar al FaceSet hasta 4 veces si hay CONCURRENCY_LIMIT_EXCEEDED
+    const maxIntentos = 4;
+    const delayEntreIntentos = Duration(seconds: 2);
+    int intento = 0;
+    http.Response addResponse;
+    final addUri = Uri.parse('https://api-us.faceplusplus.com/facepp/v3/faceset/addface');
+    final addBody = {
+      'api_key': _apiKey,
+      'api_secret': _apiSecret,
+      'outer_id': _outerId,
+      'face_tokens': faceToken,
+    };
 
-    log('📬 Respuesta de addface: ${addResponse.statusCode}');
-    if (addResponse.statusCode != 200) {
-      log('❌ Error al agregar a FaceSet: ${addResponse.body}');
-      return false;
+    while (true) {
+      intento++;
+      log('🔁 Intento $intento para agregar face_token al FaceSet...');
+      addResponse = await http.post(addUri, headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      }, body: addBody);
+
+      if (addResponse.statusCode == 200) break;
+
+      if (addResponse.statusCode == 403 &&
+          addResponse.body.contains('CONCURRENCY_LIMIT_EXCEEDED') &&
+          intento < maxIntentos) {
+        log('⏳ Concurrency limit excedido. Esperando 2 segundos antes de reintentar...');
+        await Future.delayed(delayEntreIntentos);
+      } else {
+        log('❌ Error al agregar a FaceSet: ${addResponse.body}');
+        return false;
+      }
     }
 
     // 🔗 Asignar user_id
@@ -120,6 +134,7 @@ class FacePlusService {
     return false;
   }
 }
+
 
 
   /// 🔗 Asigna un `user_id` (cédula) a un `face_token`

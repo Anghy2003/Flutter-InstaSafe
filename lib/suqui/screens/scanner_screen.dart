@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:barcode_widget/barcode_widget.dart';
@@ -12,12 +13,38 @@ class EscanearScreen extends StatefulWidget {
 }
 
 class _EscanearScreenState extends State<EscanearScreen> {
-  late Future<String?> _tokenFut;
+  String? _token;
+  Timer? _timer;
+
+  final double avatarRadius = 45; // tamaño más grande
+  final double borderWidth = 1.4; // borde más delgado
 
   @override
   void initState() {
     super.initState();
-    _tokenFut = UsuarioActual.generarQrToken();
+    _generarNuevoToken();
+    _iniciarTimer();
+  }
+
+  void _generarNuevoToken() async {
+    final nuevoToken = await UsuarioActual.generarQrToken();
+    if (mounted) {
+      setState(() {
+        _token = nuevoToken;
+      });
+    }
+  }
+
+  void _iniciarTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 60), (_) {
+      _generarNuevoToken();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -33,81 +60,104 @@ class _EscanearScreenState extends State<EscanearScreen> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: Builder(
-            builder: (ctx) =>
-                IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+            builder: (ctx) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => context.pop(),
+            ),
           ),
           centerTitle: true,
-          title: const Text('Escanea'),
+          title: const Text(
+            'Escanea',
+            style: TextStyle(color: Colors.white, fontSize: 22),
+          ),
         ),
-        body: FutureBuilder<String?>(
-          future: _tokenFut,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final token = snap.data;
-            if (token == null) {
-              return Center(
-                child: Text(
-                  'No se pudo generar el QR',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              );
-            }
-
-            // <-- Aquí envolvemos en Center para que todo el bloque quede centrado
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  // avatar
-                  CircleAvatar(
-                    radius: ancho * 0.15,
-                    backgroundImage: (UsuarioActual.fotoUrl != null && UsuarioActual.fotoUrl!.isNotEmpty)
-                        ? NetworkImage(UsuarioActual.fotoUrl!) as ImageProvider
-                        : const AssetImage('assets/avatar_placeholder.png'),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // contenedor del QR
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white54),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: <Widget>[
-                        // <-- BarcodeWidget con color personalizado
-                        BarcodeWidget(
-                          barcode: Barcode.qrCode(
-                            errorCorrectLevel: BarcodeQRCorrectionLevel.high,
+        body: _token == null
+            ? const Center(child: CircularProgressIndicator())
+            : Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    // Avatar + Contenedor QR
+                    Stack(
+                      alignment: Alignment.topCenter,
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: ancho * 0.75,
+                          padding: EdgeInsets.only(
+                            top: avatarRadius + 12,
+                            bottom: 16,
                           ),
-                          data: token,
-                          width: ancho * 0.6,
-                          height: ancho * 0.6,
-                          color: Colors.lightBlueAccent,      // color de los módulos
-                          backgroundColor: Colors.transparent, // fondo transparente
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white,
+                              width: borderWidth,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              BarcodeWidget(
+                                barcode: Barcode.qrCode(
+                                  errorCorrectLevel:
+                                      BarcodeQRCorrectionLevel.high,
+                                ),
+                                data: _token!,
+                                width: ancho * 0.55,
+                                height: ancho * 0.55,
+                                color: Colors.white,
+                                backgroundColor: Colors.transparent,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                nombre.isNotEmpty ? nombre : 'Usuario',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 27,
+                                  fontFamily: 'instasafe',
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          nombre.isNotEmpty ? nombre : 'Usuario',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontStyle: FontStyle.italic,
+                        Positioned(
+                          top: -(avatarRadius + borderWidth),
+                          child: CircleAvatar(
+                            radius: avatarRadius + borderWidth,
+                            backgroundColor: Colors.white,
+                            child: CircleAvatar(
+                              radius: avatarRadius,
+                              backgroundImage: (UsuarioActual.fotoUrl != null &&
+                                      UsuarioActual.fotoUrl!.isNotEmpty)
+                                  ? NetworkImage(UsuarioActual.fotoUrl!)
+                                  : const AssetImage(
+                                      'assets/avatar_placeholder.png',
+                                    ) as ImageProvider,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Credenciales/Código QR',
+                      style: TextStyle(
+                        color: Color.fromARGB(179, 69, 150, 200),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      '@instasafe',
+                      style: TextStyle(
+                        color: Colors.white24,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          },
-        ),
       ),
     );
   }
