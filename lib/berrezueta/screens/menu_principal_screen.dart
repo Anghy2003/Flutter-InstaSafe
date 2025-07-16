@@ -33,13 +33,15 @@ class MenuPrincipalScreen extends StatelessWidget {
 
     final List<TarjetaBotonMenuPrincipal> tarjetas = [];
 
+    if (rolId == 1 || rolId == 5 || rolId == 2) {
     tarjetas.add(
       TarjetaBotonMenuPrincipal(
         icono: Icons.qr_code_scanner,
-        titulo: 'Escanear QR',
+        titulo: 'Control de acceso',
         onPressed: () => context.push('/escaneo'),
       ),
     );
+    }
 
     if ([1, 2, 3, 5, 6].contains(rolId)) {
       tarjetas.add(
@@ -58,7 +60,7 @@ class MenuPrincipalScreen extends StatelessWidget {
       );
     }
 
-    if (rolId == 1 || rolId == 5) {
+    if (rolId == 1 || rolId == 5  || rolId == 2) {
       tarjetas.add(
         TarjetaBotonMenuPrincipal(
           icono: Icons.person_add_alt,

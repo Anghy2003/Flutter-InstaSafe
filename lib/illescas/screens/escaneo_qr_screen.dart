@@ -30,7 +30,7 @@ class EscaneoQRScreen extends StatelessWidget {
           elevation: 0,
           iconTheme: const IconThemeData(color: Colors.white),
           title: Text(
-            'Registrar\nIngreso',
+            'Control de\nAcceso',
             style: TextStyle(
               color: Colors.white,
               fontSize: ancho * 0.05,

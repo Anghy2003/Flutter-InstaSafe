@@ -73,7 +73,7 @@ class DrawerMenuLateral extends StatelessWidget {
 
                         // 🔐 Registrar Ingreso → solo para Guardia, Admin, Seguridad
                         if ([1, 2, 5].contains(rol))
-                          _buildMenuItem(context, Icons.login, 'Registrar Ingreso', '/escaneo'),
+                          _buildMenuItem(context, Icons.qr_code_scanner, 'Control de acceso', '/escaneo'),
 
                         // 🆕 Registrar Usuario → solo para Admin y Seguridad
                         if (rol == 1 || rol == 5)
