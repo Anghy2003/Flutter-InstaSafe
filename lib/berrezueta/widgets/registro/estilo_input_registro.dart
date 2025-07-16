@@ -89,16 +89,18 @@ class EstiloInputRegistro extends StatelessWidget {
   }
 
   TextInputType _definirTipoTeclado() {
-    switch (tipoCampo.toLowerCase()) {
-      case 'telefono':
-        return TextInputType.phone;
-      case 'email':
-        return TextInputType.emailAddress;
-      case 'password':
-      case 'contraseña':
-        return TextInputType.visiblePassword;
-      default:
-        return TextInputType.text;
-    }
+  switch (tipoCampo.toLowerCase()) {
+    case 'cedula':
+    case 'telefono':
+      return TextInputType.number;
+    case 'email':
+      return TextInputType.emailAddress;
+    case 'password':
+    case 'contraseña':
+      return TextInputType.visiblePassword;
+    default:
+      return TextInputType.text;
   }
+}
+
 }

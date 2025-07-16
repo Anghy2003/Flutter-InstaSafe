@@ -1,4 +1,5 @@
 class Usuario {
+  final int? id; // ← ID agregado
   final String cedula;
   final String nombre;
   final String apellido;
@@ -12,6 +13,7 @@ class Usuario {
   final String? plantillaFacial;
 
   Usuario({
+    this.id, // ← ID agregado
     required this.cedula,
     required this.nombre,
     required this.apellido,
@@ -25,7 +27,6 @@ class Usuario {
     this.plantillaFacial,
   });
 
-  /// 🟢 Para guardar (no se toca)
   Map<String, String> toTextFields() => {
         'cedula': cedula,
         'nombre': nombre,
@@ -40,9 +41,9 @@ class Usuario {
         if (plantillaFacial != null) 'plantillaFacial': plantillaFacial!,
       };
 
-  /// 🟡 Para leer desde backend (nuevo, sin romper nada)
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
+      id: json['id'], // ← ID leído del backend
       cedula: json['cedula'] ?? '',
       nombre: json['nombre'] ?? '',
       apellido: json['apellido'] ?? '',
@@ -56,4 +57,23 @@ class Usuario {
       plantillaFacial: json['plantillaFacial'],
     );
   }
+
+  Map<String, dynamic> toJsonCompleto() => {
+        'id': id ?? 0, // ← ID si existe, 0 si es nuevo
+        'cedula': cedula,
+        'nombre': nombre,
+        'apellido': apellido,
+        'correo': correo,
+        'foto': foto ?? '',
+        'plantillaFacial': plantillaFacial ?? '',
+        'genero': genero,
+        'idresponsable': idresponsable,
+        'fechanacimiento': fechanacimiento.toIso8601String(),
+        'contrasena': contrasena,
+        'fecharegistro': DateTime.now().toIso8601String(),
+        'id_rol': {
+          'id': idRol,
+          'nombre': 'string',
+        },
+      };
 }
