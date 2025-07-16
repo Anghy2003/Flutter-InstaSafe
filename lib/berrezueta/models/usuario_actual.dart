@@ -45,7 +45,7 @@ class UsuarioActual {
       final response = await http.get(
         Uri.parse(
           'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/correo/$correoBuscado',
-          //todo Verificar si se manda a buscar en la base spring con el metodo que hiciste, Dieguito tiene que subir a la baseishon
+          
         ),
         headers: {'Content-Type': 'application/json'},
       );
