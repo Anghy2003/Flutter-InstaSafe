@@ -89,7 +89,6 @@ class MenuPrincipalScreen extends StatelessWidget {
               children: [
                 SizedBox(height: alto * 0.02),
                 CircleAvatar(
-<<<<<<< HEAD
   radius: ancho * 0.18,
   backgroundImage: UsuarioActual.fotoUrl != null
       // Si tenemos URL de la foto de Google la cargamos
@@ -98,15 +97,6 @@ class MenuPrincipalScreen extends StatelessWidget {
       : const AssetImage('assets/image/avatar_placeholder.png')
           as ImageProvider,
 ),
-=======
-                  radius: ancho * 0.18,
-                  backgroundImage: NetworkImage(
-                    UsuarioActual.fotoUrl ??
-                        'https://static.vecteezy.com/system/resources/previews/019/465/366/non_2x/3d-user-icon-on-transparent-background-free-png.png',
-                  ),
-                  backgroundColor: Colors.white,
-                ),
->>>>>>> 63cff6635d0f32eec60dc9deea36dac29dac8ebb
                 SizedBox(height: alto * 0.01),
                 Text(
                   '¡Hola, $nombreUsuario!',

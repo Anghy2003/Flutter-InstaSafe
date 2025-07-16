@@ -1,5 +1,8 @@
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+
+import 'package:instasafe/suqui/services/qr_service.dart';
 
 class UsuarioActual {
   // 🌐 Datos de autenticación
@@ -84,4 +87,44 @@ class UsuarioActual {
       return false;
     }
   }
+
+//diego foto del google y el Qr
+static Future<bool> iniciarSesion(String correoBuscado, String clave) async {
+  // … tu llamada al endpoint de login …
+  // final resp = await http.post(uri, headers: {'Content-Type': 'application/json'});
+  // if (resp.statusCode != 200) return false;
+  // final data = json.decode(resp.body) as Map<String, dynamic>;
+  // asigna los campos de tu API…
+  // correo     = data['correo'] as String?;
+  // nombre     = data['nombre'] as String?;
+  // …etc.
+
+  // 1) prepara el plugin SIN cerrar sesión
+  final gs = GoogleSignIn(
+    scopes: ['email', 'profile', 'https://www.googleapis.com/auth/drive.file'],
+  );
+  String? fotoGoogle;
+  try {
+    // 2) intenta una sesión silente
+    final cuenta = await gs.signInSilently();
+    if (cuenta != null && cuenta.email == correoBuscado) {
+      fotoGoogle = cuenta.photoUrl;
+    }
+  } catch (e) {
+    print('⚠️ No pude obtener foto de Google silente: $e');
+  }
+
+  // 3) prioriza la foto de Google si la obtuviste, si no la que venga de tu API
+  // fotoUrl = fotoGoogle ?? (data['foto'] as String?);
+  return true;
+}
+
+
+static Future<String?> generarQrToken() async {
+    final id = cedula;
+    if (id == null || id.isEmpty) return null;
+    return QrService.generateEncryptedPayload(id);
+  }
+
+
 }

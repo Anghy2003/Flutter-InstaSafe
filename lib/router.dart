@@ -6,6 +6,7 @@ import 'package:instasafe/illescas/screens/escaneo_qr_screen.dart';
 import 'package:instasafe/illescas/screens/historial_screen.dart';
 import 'package:instasafe/suqui/screens/login_screen.dart';
 import 'package:instasafe/suqui/screens/perfil_screen.dart';
+import 'package:instasafe/suqui/screens/scanner_screen.dart';
 import 'package:instasafe/suqui/screens/splash_screen.dart';
 
 final appRouter = GoRouter(
@@ -41,5 +42,7 @@ final appRouter = GoRouter(
       path: '/escaneo',
       builder: (context, state) => const EscaneoQRScreen(),
     ),
+
+    GoRoute(path: '/generarQr', builder: (context, state) => const EscanearScreen()),
   ],
 );
