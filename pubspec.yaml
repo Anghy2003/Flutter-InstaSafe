@@ -45,4 +45,4 @@ flutter:
     - assets/modelos/blur_detection_model.tflite
     - assets/modelos/emotion_detection_model.tflite
     - assets/modelos/FaceAntiSpoofing.tflite
-    - assets/image/logo_istasafe.png
+    - assets/image/
