@@ -42,7 +42,7 @@ class _CrazyLogoState extends State<CrazyLogo>
         );
       },
       child: Image.asset(
-        'assets/image/logo_istasafe.png',
+        'assets/image/logo_istasafe4.jpg',
         height: 200,
         fit: BoxFit.contain,
       ),

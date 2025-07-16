@@ -7,14 +7,11 @@ import 'package:instasafe/berrezueta/widgets/registro/enviar_datos_registro_usua
 import 'package:instasafe/berrezueta/widgets/registro/funciones_registrar_usuario.dart';
 import 'package:instasafe/berrezueta/widgets/registro/icono_camara_registro.dart';
 import 'package:instasafe/berrezueta/widgets/registro/estilo_input_registro.dart';
-import 'package:instasafe/illescas/screens/comparadorfacial_ligero.dart';
 import 'package:instasafe/models/generadorplantilla.dart';
 import 'package:instasafe/illescas/screens/usuarioLigero.dart';
 import 'package:http/http.dart' as http;
-import 'package:instasafe/models/plantillafacial.dart';
 import 'dart:convert';
 import '../widgets/degradado_fondo_screen.dart';
-import 'package:instasafe/berrezueta/widgets/registro/validaciones_registro.dart';
 
 class RegistroUsuarioScreen extends StatefulWidget {
   const RegistroUsuarioScreen({super.key});
@@ -101,90 +98,93 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   }
 
   void registrarUsuario() async {
-    FocusScope.of(context).unfocus();
+  print('📌 Iniciando registro de usuario');
+  FocusScope.of(context).unfocus();
 
-    if (formKey.currentState!.validate() && imagenSeleccionada != null) {
-      final accessToken = UsuarioActual.accessToken;
-      final carpetaDriveId = UsuarioActual.carpetaDriveId;
-
-      if (accessToken == null || carpetaDriveId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Falta iniciar sesión con Google')),
-        );
-        return;
-      }
-
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder:
-            (context) => const Center(
-              child: CircularProgressIndicator(color: Colors.teal),
-            ),
-      );
-
-      final generador = GeneradorPlantillaFacial();
-      await generador.inicializarModelo();
-      final plantillaCodificada = await generador.generarDesdeImagen(
-        imagenSeleccionada!,
-      );
-
-      if (plantillaCodificada == null) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ No se pudo generar plantilla facial'),
-          ),
-        );
-        return;
-      }
-
-      final usuarios = await obtenerUsuariosLigero();
-      final resultadoComparacion = ComparadorFacialLigero.comparar(
-        PlantillaFacial.fromBase64(plantillaCodificada),
-        usuarios,
-      );
-
-      if (resultadoComparacion != null) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '❌ Ya existe un usuario con rostro similar (cédula: ${resultadoComparacion['usuario'].cedula})',
-            ),
-          ),
-        );
-        return;
-      }
-
-      final resultado = await enviarDatosRegistroUsuario(
-        cedula: cedulaController.text.trim(),
-        nombre: nombreController.text.trim(),
-        apellido: apellidoController.text.trim(),
-        correo: emailController.text.trim(),
-        genero: generoSeleccionado ?? 'SinGenero',
-        idResponsable: 1,
-        fechaNacimiento: fechaNacimiento ?? DateTime(2000, 1, 1),
-        contrasena: passwordController.text.trim(),
-        idRol: rolSeleccionado ?? 2,
-        imagen: imagenSeleccionada!,
-        accessToken: accessToken,
-        carpetaDriveId: carpetaDriveId,
-        plantillaFacial: plantillaCodificada,
-        plantillaFacialBase64: plantillaCodificada,
-      );
-
-      Navigator.of(context).pop();
-      final mensaje =
-          resultado.startsWith('ok')
-              ? '✅ Usuario registrado con éxito'
-              : resultado;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(mensaje)));
-    }
+  if (!formKey.currentState!.validate() || imagenSeleccionada == null) {
+    print('⚠️ Formulario inválido o imagen no seleccionada');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('❌ Complete todos los campos y seleccione una imagen')),
+    );
+    return;
   }
+
+  final accessToken = UsuarioActual.accessToken;
+  final carpetaDriveId = UsuarioActual.carpetaDriveId;
+
+  if (accessToken == null || carpetaDriveId == null) {
+    print('❌ Faltan datos de sesión de Google');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('❌ Falta iniciar sesión con Google')),
+    );
+    return;
+  }
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.teal)),
+  );
+
+  try {
+    // 1️⃣ Generar plantilla facial
+    print('🧠 Inicializando modelo facial...');
+    final generador = GeneradorPlantillaFacial();
+    await generador.inicializarModelo();
+
+    print('📸 Generando plantilla desde imagen seleccionada...');
+    final resultadoGeneracion = await generador.generarDesdeImagen(imagenSeleccionada!);
+    final plantillaCodificada = resultadoGeneracion['plantilla'];
+    final mensajeError = resultadoGeneracion['mensaje'];
+
+    if (plantillaCodificada == null) {
+      print('❌ Error generando plantilla facial: $mensajeError');
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensajeError ?? '❌ Error generando plantilla facial')),
+      );
+      return;
+    }
+
+    print('✅ Plantilla generada correctamente');
+
+    // 2️⃣ Enviar datos para registro
+    print('📤 Enviando datos a servidor para registro...');
+    final resultado = await enviarDatosRegistroUsuario(
+      cedula: cedulaController.text.trim(),
+      nombre: nombreController.text.trim(),
+      apellido: apellidoController.text.trim(),
+      correo: emailController.text.trim(),
+      genero: generoSeleccionado ?? 'SinGenero',
+      idResponsable: 1,
+      fechaNacimiento: fechaNacimiento ?? DateTime(2000, 1, 1),
+      contrasena: passwordController.text.trim(),
+      idRol: rolSeleccionado ?? 2,
+      imagen: imagenSeleccionada!,
+      accessToken: accessToken,
+      carpetaDriveId: carpetaDriveId,
+      plantillaFacial: plantillaCodificada,
+      plantillaFacialBase64: plantillaCodificada,
+    );
+
+    Navigator.of(context).pop();
+
+    final mensaje = resultado.startsWith('ok')
+        ? '✅ Usuario registrado con éxito'
+        : resultado;
+
+    print('📣 Resultado final: $mensaje');
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
+  } catch (e) {
+    Navigator.of(context).pop();
+    print('❌ Excepción en registrarUsuario: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('❌ Error inesperado: $e')),
+    );
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +221,10 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     icono: Icons.perm_identity,
                     tipoCampo: 'cedula',
                     controller: cedulaController,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(10),
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
                   ),
 
                   EstiloInputRegistro(
@@ -284,7 +288,10 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Fecha de nacimiento',
                           labelStyle: TextStyle(color: Colors.white),
-                          prefixIcon: Icon(Icons.calendar_today, color: Colors.white),
+                          prefixIcon: Icon(
+                            Icons.calendar_today,
+                            color: Colors.white,
+                          ),
                           enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: Colors.white70),
                           ),

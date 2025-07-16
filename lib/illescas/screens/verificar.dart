@@ -1,71 +1,129 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:instasafe/berrezueta/models/usuario_actual.dart';
+import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
 
-class VerificacionResultadoScreen extends StatelessWidget {
+class VerificacionResultadoScreen extends StatefulWidget {
   final Map<String, dynamic> datosUsuario;
 
-  const VerificacionResultadoScreen({super.key, required this.datosUsuario});
+  const VerificacionResultadoScreen({
+    super.key,
+    required this.datosUsuario,
+  });
+
+  @override
+  State<VerificacionResultadoScreen> createState() => _VerificacionResultadoScreenState();
+}
+
+class _VerificacionResultadoScreenState extends State<VerificacionResultadoScreen> {
+  final TextEditingController _descripcionController = TextEditingController();
+  String _ubicacionSeleccionada = 'Edificio Principal';
+
+  final List<String> ubicaciones = [
+    'Edificio Principal',
+    'Secretaría',
+    'Edificio Lateral',
+    'Auditorio',
+    'Biblioteca',
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final String nombre = datosUsuario['nombre'] ?? 'Desconocido';
-    final String email = datosUsuario['email'] ?? '';
-    final String rol = datosUsuario['rol'] ?? 'Sin rol';
-    final String? urlFoto = datosUsuario['foto'];
-    final bool acceso = datosUsuario['acceso'] == true;
+    final String nombre = widget.datosUsuario['nombre'] ?? 'Desconocido';
+    final String email = widget.datosUsuario['email'] ?? '';
+    final String rol = widget.datosUsuario['rol'] ?? 'Sin rol';
+    final String? urlFoto = widget.datosUsuario['foto'];
+    final String mensaje = widget.datosUsuario['mensaje'] ?? '¿Registrar evento de acceso?';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A1D37),
-      appBar: AppBar(
+    return DegradadoFondoScreen(
+      child: Scaffold(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Verificar Ingreso',
-          style: TextStyle(color: Colors.white, fontSize: 20),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text('Verificación', style: TextStyle(color: Colors.white, fontSize: 20)),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 50,
-              backgroundImage:
-                  urlFoto != null && urlFoto.isNotEmpty ? NetworkImage(urlFoto) : null,
-              child: urlFoto == null || urlFoto.isEmpty
-                  ? const Icon(Icons.person, size: 50, color: Colors.white)
-                  : null,
-            ),
-            const SizedBox(height: 20),
-            _infoRow(Icons.person, 'Nombre:', nombre),
-            const SizedBox(height: 8),
-            _infoRow(Icons.email, 'Email:', email),
-            const SizedBox(height: 8),
-            _infoRow(Icons.badge, 'Rol:', rol),
-            const Divider(height: 30, color: Colors.white24),
-            _estado(acceso),
-            const SizedBox(height: 30),
-            _botonPrincipal(
-              label: 'Registrar Ingreso',
-              onPressed: () {
-                // TODO: Lógica de registrar ingreso
-                Navigator.pop(context);
-              },
-            ),
-            const SizedBox(height: 15),
-            _botonSecundario(
-              label: 'Cancelar',
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-            const Spacer(),
-            Text(
-              '©IstaSafe',
-              style: TextStyle(color: Colors.white.withOpacity(0.5)),
-            ),
-          ],
+        body: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 50,
+                backgroundImage: urlFoto != null && urlFoto.isNotEmpty
+                    ? NetworkImage(urlFoto)
+                    : null,
+                child: urlFoto == null || urlFoto.isEmpty
+                    ? const Icon(Icons.person, size: 50, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(height: 20),
+              _infoRow(Icons.person, 'Nombre:', nombre),
+              const SizedBox(height: 8),
+              _infoRow(Icons.email, 'Email:', email),
+              const SizedBox(height: 8),
+              _infoRow(Icons.badge, 'Rol:', rol),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.lightBlueAccent),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      mensaje,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 30, color: Colors.white24),
+
+              DropdownButtonFormField<String>(
+                value: _ubicacionSeleccionada,
+                dropdownColor: const Color(0xFF0A1D37),
+                decoration: const InputDecoration(
+                  labelText: 'Ubicación',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white30),
+                  ),
+                ),
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                style: const TextStyle(color: Colors.white),
+                items: ubicaciones.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _ubicacionSeleccionada = value!;
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _descripcionController,
+                style: const TextStyle(color: Colors.white),
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Descripción (opcional)',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white30),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blueAccent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+
+              _botonPrincipal(label: 'Registrar evento', onPressed: _registrarEvento),
+              const SizedBox(height: 15),
+              _botonSecundario(label: 'Cancelar', onPressed: () => Navigator.pop(context)),
+              const Spacer(),
+              Text('©IstaSafe', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+            ],
+          ),
         ),
       ),
     );
@@ -76,58 +134,13 @@ class VerificacionResultadoScreen extends StatelessWidget {
       children: [
         Icon(icon, color: Colors.white70, size: 18),
         const SizedBox(width: 10),
-        Text(
-          '$label ',
-          style: const TextStyle(color: Colors.white70),
-        ),
+        Text('$label ', style: const TextStyle(color: Colors.white70)),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
             overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _estado(bool acceso) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Estado:', style: TextStyle(color: Colors.white70)),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Icon(
-              acceso ? Icons.check_circle : Icons.cancel,
-              color: acceso ? Colors.green : Colors.red,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              acceso ? 'Acceso Permitido' : 'Acceso Denegado',
-              style: TextStyle(
-                color: acceso ? Colors.green : Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: const [
-            Icon(Icons.warning, color: Colors.amber),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Debe regularizar sus Datos',
-                style: TextStyle(color: Colors.amber),
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -136,14 +149,15 @@ class VerificacionResultadoScreen extends StatelessWidget {
   Widget _botonPrincipal({required String label, required VoidCallback onPressed}) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blueAccent,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      child: OutlinedButton(
         onPressed: onPressed,
-        child: Text(label, style: const TextStyle(fontSize: 16)),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: const Color(0xFF0A2240),
+          side: const BorderSide(color: Colors.blueAccent),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 16)),
       ),
     );
   }
@@ -152,17 +166,42 @@ class VerificacionResultadoScreen extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.white54),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
         onPressed: onPressed,
-        child: Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.blueAccent),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(vertical: 16),
         ),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 16)),
       ),
     );
+  }
+
+  Future<void> _registrarEvento() async {
+    final evento = {
+      "titulo": "ACCESO",
+      "descripcion": _descripcionController.text,
+      "lugar": _ubicacionSeleccionada,
+      "fechaingreso": DateTime.now().toIso8601String(),
+      "id_usuario": {"id": widget.datosUsuario['id']},
+      "id_guardia": {"id": UsuarioActual.id},
+    };
+
+    final response = await http.post(
+      Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/eventos'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(evento),
+    );
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Evento registrado correctamente.')),
+      );
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error al registrar evento: ${response.body}')),
+      );
+    }
   }
 }

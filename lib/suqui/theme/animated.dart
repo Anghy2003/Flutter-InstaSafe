@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 class AnimatedBackground extends StatefulWidget {
   final Widget child;
   const AnimatedBackground({required this.child, super.key});
+
   @override
   State<AnimatedBackground> createState() => _AnimatedBackgroundState();
 }
@@ -11,16 +12,14 @@ class AnimatedBackground extends StatefulWidget {
 class _AnimatedBackgroundState extends State<AnimatedBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  late final Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 20),
+      duration: const Duration(seconds: 8),
     )..repeat();
-    _anim = Tween<double>(begin: 0, end: 2 * pi).animate(_ctrl);
   }
 
   @override
@@ -32,25 +31,28 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _anim,
+      animation: _ctrl,
       builder: (context, child) {
-        // movemos el centro en un pequeño círculo de radio 0.2
-        final x = cos(_anim.value) * 0.2;
-        final y = sin(_anim.value) * 0.2;
+        final t = _ctrl.value;
+        // Oscila la parada central entre 0.45 y 0.55
+        final midStop = 0.5 + 0.05 * sin(2 * pi * t);
+        // Oscila ligeramente el radio del degradado
+        final radius = 0.8 + 0.02 * sin(2 * pi * t);
+
         return Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(
-              center: Alignment(x, y),
-              radius: 0.8,
+              center: Alignment.center,
+              radius: radius,
               colors: const [
-                Color.fromARGB(255, 18, 22, 36),
-                Color.fromARGB(255, 9, 36, 67),
-                Color.fromARGB(255, 18, 22, 36),
+                Color(0xFF121624),
+                Color(0xFF092443),
+                Color(0xFF121624),
               ],
-              stops: [0.0, 0.5, 1.0],
+              stops: [0.0, midStop, 1.0],
             ),
           ),
-          child: widget.child,
+          child: child,
         );
       },
       child: widget.child,

@@ -41,10 +41,10 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
 
   }
 
-  Future<void> _procesarImagen(ImageSource source) async {
+ Future<void> _procesarImagen() async {
   final seleccion = await _picker.pickImage(
-    source: source,
-    preferredCameraDevice: CameraDevice.rear, // ✅ Solo cámara trasera
+    source: ImageSource.camera, // siempre cámara
+    preferredCameraDevice: CameraDevice.rear, // cámara trasera
   );
   if (seleccion == null) return;
 
@@ -71,6 +71,7 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
     _mostrarDialogoError(resultado);
   }
 }
+
 
 
   Future<String> _validarImagen(File imagen) async {
@@ -145,7 +146,7 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
     onTapDown: (_) => _controller.forward(),
     onTapUp: (_) {
       _controller.reverse();
-      _procesarImagen(ImageSource.camera);
+      _procesarImagen();
     },
     onTapCancel: () => _controller.reverse(),
     child: AnimatedBuilder(
@@ -193,16 +194,24 @@ class _IconoCamaraRegistroState extends State<IconoCamaraRegistro>
 
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _contenedorImagen(),
-        const SizedBox(height: 8),
-        // Si deseas agregar el botón de galería otra vez, lo puedes activar aquí
-        // _botonGaleria(),
-      ],
-    );
-  }
+Widget build(BuildContext context) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _contenedorImagen(),
+      const SizedBox(height: 8),
+      const Text(
+        'Clic para tomar foto',
+        style: TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    ],
+  );
+}
+
 
   @override
   void dispose() {

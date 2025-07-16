@@ -4,6 +4,7 @@ import 'router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await initializeDateFormatting('es_ES', null); // Inicializa datos regionales
   WidgetsFlutterBinding.ensureInitialized();
   runApp(MyApp());
@@ -14,6 +15,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       theme: ThemeData(
+        
     scaffoldBackgroundColor: const Color(0xFF1A1A2E), // Azul oscuro por defecto
     //ya no vale
     brightness: Brightness.dark,

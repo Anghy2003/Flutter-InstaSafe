@@ -6,11 +6,11 @@ class TarjetaBotonMenuPrincipal extends StatelessWidget {
   final VoidCallback onPressed;
 
   const TarjetaBotonMenuPrincipal({
-    Key? key,
+    super.key,
     required this.icono,
     required this.titulo,
     required this.onPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

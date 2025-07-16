@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:instasafe/berrezueta/models/usuario_actual.dart';
-import 'package:instasafe/berrezueta/widgets/menuPrincipal/boton_iniciar_sesion_google.dart';
 import 'package:intl/intl.dart';
-
 import '../widgets/menuPrincipal/tarjeta_boton_menu_principal.dart';
 import '../widgets/degradado_fondo_screen.dart';
 
@@ -22,34 +20,61 @@ class MenuPrincipalScreen extends StatelessWidget {
     final alto = MediaQuery.of(context).size.height;
     final tamanoTextoSaludo = ancho * 0.06;
     final tamanoTextoFecha = ancho * 0.035;
+    final rolId = UsuarioActual.idRol ?? 0;
 
-    final tarjetas = [
+    final String nombreRol = {
+      1: 'Administrador',
+      2: 'Guardia',
+      3: 'Estudiante',
+      4: 'Visitante',
+      5: 'Seguridad',
+      6: 'Docente',
+    }[rolId] ?? 'No registrado';
+
+    final List<TarjetaBotonMenuPrincipal> tarjetas = [];
+
+    tarjetas.add(
       TarjetaBotonMenuPrincipal(
         icono: Icons.qr_code_scanner,
         titulo: 'Escanear QR',
         onPressed: () => context.push('/escaneo'),
       ),
-      TarjetaBotonMenuPrincipal(
-        icono: Icons.person,
-        titulo: 'Mi Perfil',
-        onPressed: () => context.push('/perfil'),
-      ),
-      TarjetaBotonMenuPrincipal(
-        icono: Icons.history,
-        titulo: 'Historial',
-        onPressed: () => context.push('/historial'),
-      ),
-      TarjetaBotonMenuPrincipal(
-        icono: Icons.person_add_alt,
-        titulo: 'Registrar Usuario',
-        onPressed: () => context.push('/registro'),
-      ),
+    );
+
+    if ([1, 2, 3, 5, 6].contains(rolId)) {
+      tarjetas.add(
+        TarjetaBotonMenuPrincipal(
+          icono: Icons.person,
+          titulo: 'Mi Perfil',
+          onPressed: () => context.push('/perfil'),
+        ),
+      );
+      tarjetas.add(
+        TarjetaBotonMenuPrincipal(
+          icono: Icons.history,
+          titulo: 'Historial',
+          onPressed: () => context.push('/historial'),
+        ),
+      );
+    }
+
+    if (rolId == 1 || rolId == 5) {
+      tarjetas.add(
+        TarjetaBotonMenuPrincipal(
+          icono: Icons.person_add_alt,
+          titulo: 'Registrar Usuario',
+          onPressed: () => context.push('/registro'),
+        ),
+      );
+    }
+
+    tarjetas.add(
       TarjetaBotonMenuPrincipal(
         icono: Icons.logout,
-        titulo: 'Cerrar Sesion',
+        titulo: 'Cerrar Sesión',
         onPressed: () => context.go('/'),
       ),
-    ];
+    );
 
     final double espacio = 16;
     final double anchoTarjeta = (ancho - espacio * 3) / 2;
@@ -64,12 +89,24 @@ class MenuPrincipalScreen extends StatelessWidget {
               children: [
                 SizedBox(height: alto * 0.02),
                 CircleAvatar(
+<<<<<<< HEAD
+  radius: ancho * 0.18,
+  backgroundImage: UsuarioActual.fotoUrl != null
+      // Si tenemos URL de la foto de Google la cargamos
+      ? NetworkImage(UsuarioActual.fotoUrl!)
+      // Si no, uso un asset local (no más placeholder remoto)
+      : const AssetImage('assets/image/avatar_placeholder.png')
+          as ImageProvider,
+),
+=======
                   radius: ancho * 0.18,
-                  backgroundImage:NetworkImage(
-                              UsuarioActual.fotoUrl ??
-                                  'https://via.placeholder.com/150',
-                            ),
+                  backgroundImage: NetworkImage(
+                    UsuarioActual.fotoUrl ??
+                        'https://static.vecteezy.com/system/resources/previews/019/465/366/non_2x/3d-user-icon-on-transparent-background-free-png.png',
+                  ),
+                  backgroundColor: Colors.white,
                 ),
+>>>>>>> 63cff6635d0f32eec60dc9deea36dac29dac8ebb
                 SizedBox(height: alto * 0.01),
                 Text(
                   '¡Hola, $nombreUsuario!',
@@ -80,6 +117,17 @@ class MenuPrincipalScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                ),
+                SizedBox(height: alto * 0.005),
+                Text(
+                  nombreRol,
+                  style: TextStyle(
+                    fontSize: tamanoTextoFecha,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[300],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: alto * 0.005),
                 Text(
@@ -103,15 +151,6 @@ class MenuPrincipalScreen extends StatelessWidget {
                           .toList(),
                     ),
                   ),
-                ),
-                Text(
-                  'Último ingreso: 08:42 AM',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: tamanoTextoFecha,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 
                 Text(
