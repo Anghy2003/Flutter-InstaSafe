@@ -14,6 +14,7 @@ class CamaraGuiadaScreen extends StatefulWidget {
 class _CamaraGuiadaScreenState extends State<CamaraGuiadaScreen> {
   late CameraController _controller;
   late Future<void> _initCamera;
+  bool _guardando = false; // Loader flag
 
   @override
   void initState() {
@@ -24,7 +25,11 @@ class _CamaraGuiadaScreenState extends State<CamaraGuiadaScreen> {
   Future<void> _configurarCamara() async {
     final cameras = await availableCameras();
     final trasera = cameras.firstWhere((cam) => cam.lensDirection == CameraLensDirection.back);
-    _controller = CameraController(trasera, ResolutionPreset.medium);
+    _controller = CameraController(
+      trasera,
+      ResolutionPreset.low, 
+      enableAudio: false,
+    );
     await _controller.initialize();
   }
 
@@ -35,10 +40,22 @@ class _CamaraGuiadaScreenState extends State<CamaraGuiadaScreen> {
   }
 
   Future<void> _capturar() async {
-    final xFile = await _controller.takePicture();
-    final archivo = File(xFile.path);
-    widget.onFotoCapturada(archivo);
-    Navigator.of(context).pop(); // cerrar cámara
+    setState(() => _guardando = true); // Muestra overlay loader
+    try {
+      final xFile = await _controller.takePicture();
+      final archivo = File(xFile.path);
+      // Puedes dejar un pequeño delay para asegurarte que el overlay se vea
+      await Future.delayed(const Duration(milliseconds: 300));
+      widget.onFotoCapturada(archivo);
+      if (mounted) Navigator.of(context).pop(); // Cierra la cámara
+    } catch (e) {
+      setState(() => _guardando = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error al tomar la foto: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -69,10 +86,27 @@ class _CamaraGuiadaScreenState extends State<CamaraGuiadaScreen> {
                     ),
                     icon: const Icon(Icons.camera_alt),
                     label: const Text("Capturar"),
-                    onPressed: _capturar,
+                    onPressed: _guardando ? null : _capturar,
                   ),
                 ),
-              )
+              ),
+              if (_guardando)
+                Container(
+                  color: Colors.black.withOpacity(0.75),
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.blueAccent),
+                        SizedBox(height: 18),
+                        Text(
+                          "Procesando foto...",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           );
         },
@@ -98,7 +132,7 @@ class _EsquinasGuiaPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF07294D) // Azul oscuro personalizado
+      ..color = const Color(0xFF07294D)
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
 

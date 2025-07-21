@@ -59,7 +59,7 @@ class InformacionRegistroModel {
   /// Formatea una fecha desde string a formato dd/MM/yyyy HH:mm
   String _formatearFecha(String fechaRaw) {
     try {
-      final fecha = DateTime.parse(fechaRaw);
+      final fecha = DateTime.parse(fechaRaw).toLocal();
       return DateFormat('dd/MM/yyyy HH:mm').format(fecha);
     } catch (_) {
       return 'Sin datos';

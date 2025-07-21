@@ -16,9 +16,10 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
-  final _passCtrl  = TextEditingController();
-  bool _obscure    = true;
-  bool _loading    = false;
+  final _passCtrl = TextEditingController();
+  bool _obscure = true;
+  bool _loading = false;
+  bool _loadingGoogle = false;
 
   @override
   void dispose() {
@@ -29,11 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin() async {
     final correo = _emailCtrl.text.trim();
-    final clave  = _passCtrl.text;
+    final clave = _passCtrl.text;
     if (correo.isEmpty || clave.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debes completar correo y contraseña'))
-      );
+          const SnackBar(content: Text('Debes completar correo y contraseña')));
       return;
     }
 
@@ -45,79 +45,97 @@ class _LoginScreenState extends State<LoginScreen> {
       context.go('/menu');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Correo o Contraseña incorrectos'))
-      );
+          const SnackBar(content: Text('Correo o Contraseña incorrectos')));
     }
   }
+
+  void _showLoaderGoogle() => setState(() => _loadingGoogle = true);
+  void _hideLoaderGoogle() => setState(() => _loadingGoogle = false);
 
   @override
   Widget build(BuildContext context) {
     final ancho = MediaQuery.of(context).size.width;
     return Theme(
       data: AppTheme.lightTheme,
-      child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: AppTheme.backgroundGradient,
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
-                const CrazyLogo(),
-                const SizedBox(height: 40),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Iniciar Sesión',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineLarge
-                              ?.copyWith(
-                                fontSize: ancho * 0.07,
-                                color: Colors.white,
-                              ),
-                          textAlign: TextAlign.center,
+      child: Stack(
+        children: [
+          Scaffold(
+            body: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: AppTheme.backgroundGradient,
+              ),
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 40),
+                    const CrazyLogo(),
+                    const SizedBox(height: 40),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Iniciar Sesión',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineLarge
+                                  ?.copyWith(
+                                    fontSize: ancho * 0.07,
+                                    color: Colors.white,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 32),
+                            EmailInput(controller: _emailCtrl),
+                            const SizedBox(height: 24),
+                            PasswordInput(
+                              controller: _passCtrl,
+                              obscure: _obscure,
+                              toggleObscure: () =>
+                                  setState(() => _obscure = !_obscure),
+                            ),
+                            const SizedBox(height: 32),
+                            if (_loading)
+                              const Center(child: CircularProgressIndicator())
+                            else
+                              LoginButton(onPressed: _handleLogin),
+                            const SizedBox(height: 16),
+                            BotonIniciarSesionGoogle(
+                              onLoadingStart: _showLoaderGoogle,
+                              onLoadingEnd: _hideLoaderGoogle,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 32),
-                        EmailInput(controller: _emailCtrl),
-                        const SizedBox(height: 24),
-                        PasswordInput(
-                          controller: _passCtrl,
-                          obscure: _obscure,
-                          toggleObscure: () =>
-                              setState(() => _obscure = !_obscure),
-                        ),
-                        const SizedBox(height: 32),
-                        if (_loading)
-                          const Center(child: CircularProgressIndicator())
-                        else
-                          LoginButton(onPressed: _handleLogin),
-                        const SizedBox(height: 16),
-                        const BotonIniciarSesionGoogle(),
-                      ],
+                      ),
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text(
+                        '© IstaSafe',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(
+                              fontSize: ancho * 0.033,
+                              color: Colors.white70,
+                            ),
+                      ),
+                    ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Text(
-                    '© IstaSafe',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontSize: ancho * 0.033,
-                          color: Colors.white70,
-                        ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+          if (_loadingGoogle)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              alignment: Alignment.center,
+              child: const CircularProgressIndicator(),
+            ),
+        ],
       ),
     );
   }

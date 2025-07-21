@@ -1,17 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:instasafe/berrezueta/models/usuario_actual.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:intl/intl.dart';
-import '../widgets/menuPrincipal/tarjeta_boton_menu_principal.dart';
+import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import '../widgets/degradado_fondo_screen.dart';
+import '../widgets/menuPrincipal/tarjeta_boton_menu_principal.dart';
 
-class MenuPrincipalScreen extends StatelessWidget {
-  final String nombreUsuario = UsuarioActual.nombre ?? 'Usuario';
+class MenuPrincipalScreen extends StatefulWidget {
+  const MenuPrincipalScreen({super.key});
+
+  @override
+  State<MenuPrincipalScreen> createState() => _MenuPrincipalScreenState();
+}
+
+class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
+  bool _cerrandoSesion = false;
 
   String _obtenerFecha() {
     final now = DateTime.now();
     final formatter = DateFormat('EEE, d MMM yyyy', 'es_ES');
     return formatter.format(now);
+  }
+
+  Future<void> _cerrarSesion(BuildContext context) async {
+    setState(() => _cerrandoSesion = true);
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
+    UsuarioActual.limpiar();
+    setState(() => _cerrandoSesion = false);
+    context.go('/');
+  }
+
+  Widget _buildAvatar(double diameter) {
+    final fotoUrl = UsuarioActual.fotoUrl;
+    if (fotoUrl == null) {
+      return CircleAvatar(
+        radius: diameter / 2,
+        backgroundImage:
+            const AssetImage('assets/image/avatar_placeholder.png'),
+      );
+    }
+    return ClipOval(
+      child: Container(
+        width: diameter,
+        height: diameter,
+        color: Colors.white, 
+        child: Image.network(
+          fotoUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return const Center(
+              child: CircularProgressIndicator(
+                color: Colors.blueAccent,
+                strokeWidth: 2.5,
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return const Center(
+              child: Icon(
+                Icons.error_outline,
+                color: Colors.redAccent,
+                size: 40,
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -22,45 +80,43 @@ class MenuPrincipalScreen extends StatelessWidget {
     final tamanoTextoFecha = ancho * 0.035;
     final rolId = UsuarioActual.idRol ?? 0;
 
-    final String nombreRol = {
+    final nombreRol = {
       1: 'Administrador',
       2: 'Guardia',
       3: 'Estudiante',
-      4: 'Visitante',
+      4: 'Personal de Limpieza',
       5: 'Seguridad',
       6: 'Docente',
     }[rolId] ?? 'No registrado';
 
+    final nombreUsuario = UsuarioActual.nombre ?? 'Usuario';
+
+    //tarjetas según el rol
     final List<TarjetaBotonMenuPrincipal> tarjetas = [];
-
-    if (rolId == 1 || rolId == 5 || rolId == 2) {
-    tarjetas.add(
-      TarjetaBotonMenuPrincipal(
-        icono: Icons.qr_code_scanner,
-        titulo: 'Control de acceso',
-        onPressed: () => context.push('/escaneo'),
-      ),
-    );
-    }
-
-    if ([1, 2, 3, 5, 6].contains(rolId)) {
+    if ([1, 2, 5].contains(rolId)) {
       tarjetas.add(
+        TarjetaBotonMenuPrincipal(
+          icono: Icons.qr_code_scanner,
+          titulo: 'Control de acceso',
+          onPressed: () => context.push('/escaneo'),
+        ),
+      );
+    }
+    if ([1, 2, 3, 5, 6,4].contains(rolId)) {
+      tarjetas.addAll([
         TarjetaBotonMenuPrincipal(
           icono: Icons.person,
           titulo: 'Mi Perfil',
           onPressed: () => context.push('/perfil'),
         ),
-      );
-      tarjetas.add(
         TarjetaBotonMenuPrincipal(
           icono: Icons.history,
           titulo: 'Historial',
           onPressed: () => context.push('/historial'),
         ),
-      );
+      ]);
     }
-
-    if (rolId == 1 || rolId == 5  || rolId == 2) {
+    if ([1,  5].contains(rolId)) {
       tarjetas.add(
         TarjetaBotonMenuPrincipal(
           icono: Icons.person_add_alt,
@@ -69,46 +125,49 @@ class MenuPrincipalScreen extends StatelessWidget {
         ),
       );
     }
-
+    
     tarjetas.add(
       TarjetaBotonMenuPrincipal(
         icono: Icons.logout,
         titulo: 'Cerrar Sesión',
-        onPressed: () => context.go('/'),
+        onPressed: _cerrandoSesion ? null : () => _cerrarSesion(context),
+        trailing: _cerrandoSesion
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.redAccent,
+                ),
+              )
+            : null,
       ),
     );
 
-    final double espacio = 16;
-    final double anchoTarjeta = (ancho - espacio * 3) / 2;
+    final espacio = 16.0;
+    final anchoTarjeta = (ancho - espacio * 3) / 2;
+    final avatarDiameter = ancho * 0.36;
 
     return DegradadoFondoScreen(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
                 SizedBox(height: alto * 0.02),
-                CircleAvatar(
-  radius: ancho * 0.18,
-  backgroundImage: UsuarioActual.fotoUrl != null
-      // Si tenemos URL de la foto de Google la cargamos
-      ? NetworkImage(UsuarioActual.fotoUrl!)
-      // Si no, uso un asset local (no más placeholder remoto)
-      : const AssetImage('assets/image/avatar_placeholder.png')
-          as ImageProvider,
-),
+                _buildAvatar(avatarDiameter),
                 SizedBox(height: alto * 0.01),
                 Text(
                   '¡Hola, $nombreUsuario!',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: tamanoTextoSaludo,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: alto * 0.005),
                 Text(
@@ -125,8 +184,8 @@ class MenuPrincipalScreen extends StatelessWidget {
                 Text(
                   _obtenerFecha(),
                   style: TextStyle(
-                    color: Colors.grey[400],
                     fontSize: tamanoTextoFecha,
+                    color: Colors.grey[400],
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -139,20 +198,20 @@ class MenuPrincipalScreen extends StatelessWidget {
                       runSpacing: espacio,
                       alignment: WrapAlignment.center,
                       children: tarjetas
-                          .map((t) => SizedBox(width: anchoTarjeta, child: t))
+                          .map((t) => SizedBox(
+                                width: anchoTarjeta,
+                                child: t,
+                              ))
                           .toList(),
                     ),
                   ),
                 ),
-                
                 Text(
                   '©IstaSafe',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: ancho * 0.033,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: alto * 0.02),
               ],

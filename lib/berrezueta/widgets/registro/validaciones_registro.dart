@@ -11,11 +11,12 @@ class ValidacionesRegistro {
     // Validación para cédula ecuatoriana
     final provincia = int.parse(cedula.substring(0, 2));
     final tercerDigito = int.parse(cedula.substring(2, 3));
-    if (provincia < 1 || provincia > 24) return 'Provincia inválida en la cédula';
+    if (provincia < 1 || provincia > 24)
+      return 'Provincia inválida en la cédula';
     if (tercerDigito > 6) return 'Formato incorrecto para cédula ecuatoriana';
 
     // Algoritmo de validación (módulo 10)
-    final coeficientes = [2, 1 , 2, 1, 2, 1, 2, 1, 2];
+    final coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
     int suma = 0;
     for (int i = 0; i < coeficientes.length; i++) {
       int valor = coeficientes[i] * int.parse(cedula[i]);
@@ -37,22 +38,35 @@ class ValidacionesRegistro {
   }
 
   static String? validarApellido(String value) {
-  final apellido = value.trim();
-  if (apellido.isEmpty) return 'El apellido es obligatorio';
-  if (!RegExp(r"^[a-zA-ZÁÉÍÓÚÑáéíóúñ\s]+$").hasMatch(apellido)) {
-    return 'El apellido solo debe contener letras';
+    final apellido = value.trim();
+    if (apellido.isEmpty) return 'El apellido es obligatorio';
+    if (!RegExp(r"^[a-zA-ZÁÉÍÓÚÑáéíóúñ\s]+$").hasMatch(apellido)) {
+      return 'El apellido solo debe contener letras';
+    }
+    return null;
   }
-  return null;
-}
-
 
   static String? validarTelefono(String value) {
     final telefono = value.trim();
     if (telefono.isEmpty) return 'El teléfono es obligatorio';
-    if (!RegExp(r'^\+?\d{7,15}$').hasMatch(telefono)) {
-      return 'Teléfono inválido';
+    // Si empieza con +593
+    if (telefono.startsWith('+593')) {
+      if (telefono.length != 13)
+        return 'Debe tener 13 caracteres (+593XXXXXXXXX)';
+      if (!RegExp(r'^\+593\d{9}$').hasMatch(telefono)) {
+        return 'Formato: +593 seguido de 9 dígitos';
+      }
+      return null;
     }
-    return null;
+    // Si empieza con 09
+    if (telefono.startsWith('09')) {
+      if (telefono.length != 10) return 'Debe tener 10 dígitos (09XXXXXXXX)';
+      if (!RegExp(r'^09\d{8}$').hasMatch(telefono)) {
+        return 'Formato: 09 seguido de 8 dígitos';
+      }
+      return null;
+    }
+    return 'Debe iniciar con +593 o 09';
   }
 
   static String? validarEmail(String value) {
@@ -65,8 +79,15 @@ class ValidacionesRegistro {
   }
 
   static String? validarPassword(String value) {
-    if (value.trim().isEmpty) return 'La contraseña es obligatoria';
-    if (value.length < 6) return 'Mínimo 6 caracteres';
+    final password = value.trim();
+    if (password.isEmpty) return 'La contraseña es obligatoria';
+    if (password.length < 8) return 'Debe tener mínimo 8 caracteres';
+    if (!RegExp(r'[A-Z]').hasMatch(password))
+      return 'Debe tener al menos una letra mayúscula';
+    if (!RegExp(r'[a-z]').hasMatch(password))
+      return 'Debe tener al menos una letra minúscula';
+    if (!RegExp(r'[0-9]').hasMatch(password))
+      return 'Debe tener al menos un número';
     return null;
   }
 }

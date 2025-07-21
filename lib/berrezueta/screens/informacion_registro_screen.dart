@@ -1,3 +1,5 @@
+// lib/berrezueta/screens/informacion_registro_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:instasafe/berrezueta/models/informacion_registro_model.dart';
 import 'package:instasafe/berrezueta/services/informacion_registro_service.dart';
@@ -24,47 +26,34 @@ class _InformacionRegistroScreenState extends State<InformacionRegistroScreen> {
     _initializeData();
   }
 
-  /// Inicializa los datos al cargar la pantalla
   Future<void> _initializeData() async {
     if (widget.eventoId != null) {
       await _cargarEvento();
     } else {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
-  /// Carga la información del evento desde el servicio
   Future<void> _cargarEvento() async {
     try {
       final eventoData = await InformacionRegistroService.fetchEventoById(
         widget.eventoId!,
       );
-
-      if (eventoData != null) {
-        setState(() {
-          registro = InformacionRegistroModel.fromApiData(eventoData);
-          isLoading = false;
-        });
-      } else {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Error al cargar evento: $e');
       setState(() {
+        registro = eventoData != null
+            ? InformacionRegistroModel.fromApiData(eventoData)
+            : null;
         isLoading = false;
       });
-      // Aquí podrías mostrar un snackbar o mensaje de error
+    } catch (e) {
+      print('Error al cargar evento: $e');
+      setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final ancho = MediaQuery.of(context).size.width;
-
     return DegradadoFondoScreen(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -75,7 +64,6 @@ class _InformacionRegistroScreenState extends State<InformacionRegistroScreen> {
     );
   }
 
-  /// Construye el AppBar
   PreferredSizeWidget _buildAppBar(double ancho) {
     return AppBar(
       backgroundColor: Colors.transparent,
@@ -95,17 +83,16 @@ class _InformacionRegistroScreenState extends State<InformacionRegistroScreen> {
     );
   }
 
-  /// Construye el cuerpo principal según el estado
   Widget _buildBody(double ancho) {
     if (isLoading) {
       return InformacionRegistroWidgets.buildLoadingState();
-    } else if (registro == null) {
-      return InformacionRegistroWidgets.buildErrorState();
-    } else {
-      return InformacionRegistroWidgets.buildInformacionContent(
-        registro: registro!,
-        ancho: ancho,
-      );
     }
+    if (registro == null) {
+      return InformacionRegistroWidgets.buildErrorState();
+    }
+    return InformacionRegistroWidgets.buildInformacionContent(
+      registro: registro!,
+      ancho: ancho,
+    );
   }
 }

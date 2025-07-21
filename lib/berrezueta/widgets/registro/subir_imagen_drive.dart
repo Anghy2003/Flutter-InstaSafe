@@ -1,70 +1,86 @@
-import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
-Future<String?> subirImagenADrive(File imagen, String accessToken, String carpetaId) async {
-  try {
-    final bytes = await imagen.readAsBytes();
-    final nombreArchivo = 'rostro_${DateTime.now().millisecondsSinceEpoch}.jpg';
+Future<String?> subirImagenADrive(
+  File imagen,
+  String carpetaId,
+) async {
+  const timeout = Duration(seconds: 20);
+  final nombreArchivo = 'rostro_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-    final metadata = {
-      'name': nombreArchivo,
-      'mimeType': 'image/jpeg',
-      'parents': [carpetaId],
-    };
+  // Obtiene credenciales de GoogleSignIn
+  final googleSignIn = GoogleSignIn(
+    scopes: ['email', 'https://www.googleapis.com/auth/drive.file'],
+  );
+  final cuenta = googleSignIn.currentUser ?? await googleSignIn.signInSilently();
+  if (cuenta == null) {
+    throw Exception('No hay sesion de Google activa');
+  }
+  final authHeaders = await cuenta.authHeaders;
+  final authHeader = authHeaders['Authorization'];
+  if (authHeader == null) {
+    throw Exception('No se pudo obtener el header de autorizacion');
+  }
 
-    final uri = Uri.parse('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart');
-    final request = http.MultipartRequest('POST', uri)
-      ..headers['Authorization'] = 'Bearer $accessToken'
-      ..files.add(http.MultipartFile.fromString(
-        'metadata',
-        jsonEncode(metadata),
-        contentType: MediaType('application', 'json'),
-      ))
-      ..files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: nombreArchivo,
-        contentType: MediaType('image', 'jpeg'),
-      ));
+  // Prepara metadata
+  final metadata = {
+    'name': nombreArchivo,
+    'mimeType': 'image/jpeg',
+    'parents': [carpetaId],
+  };
 
-    print('🟢 Subiendo imagen a Drive...');
-    print('📎 Archivo: $nombreArchivo');
-    print('📂 CarpetaID: $carpetaId');
+  // Construye la peticion multipart
+  final uri = Uri.parse('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart');
+  final request = http.MultipartRequest('POST', uri)
+    ..headers['Authorization'] = authHeader;
 
-    final response = await request.send();
-    print('🔴 Código de respuesta: ${response.statusCode}');
+  request.files.add(http.MultipartFile.fromString(
+    'metadata',
+    jsonEncode(metadata),
+    contentType: MediaType('application', 'json'),
+  ));
 
-    if (response.statusCode == 200) {
-      final body = await response.stream.bytesToString();
-      final fileId = jsonDecode(body)['id'];
+  request.files.add(await http.MultipartFile.fromPath(
+    'file',
+    imagen.path,
+    filename: nombreArchivo,
+    contentType: MediaType('image', 'jpeg'),
+  ));
 
-      // Hacer la imagen pública
-      final permisoResponse = await http.post(
-        Uri.parse('https://www.googleapis.com/drive/v3/files/$fileId/permissions'),
+  // Envía la peticion
+  final streamedResponse = await request.send().timeout(timeout);
+  if (streamedResponse.statusCode != 200) {
+    final error = await streamedResponse.stream.bytesToString();
+    print('Error al subir imagen a Drive: $error');
+    return null;
+  }
+
+  // Lee la respuesta
+  final body = await streamedResponse.stream.bytesToString();
+  final fileId = jsonDecode(body)['id'];
+
+  // Asigna permiso de lectura publica
+  final permUri = Uri.parse('https://www.googleapis.com/drive/v3/files/$fileId/permissions');
+  final permResponse = await http
+      .post(
+        permUri,
         headers: {
-          'Authorization': 'Bearer $accessToken',
+          'Authorization': authHeader,
           'Content-Type': 'application/json',
         },
         body: jsonEncode({'role': 'reader', 'type': 'anyone'}),
-      );
+      )
+      .timeout(timeout);
 
-      if (permisoResponse.statusCode == 200 || permisoResponse.statusCode == 204) {
-        final urlDescarga = 'https://drive.google.com/uc?id=$fileId';
-        print('✅ Imagen subida con éxito: $urlDescarga');
-        return urlDescarga;
-      } else {
-        print('⚠ No se pudo compartir el archivo públicamente');
-        return null;
-      }
-    } else {
-      final error = await response.stream.bytesToString();
-      print('❌ Error al subir imagen: $error');
-      return null;
-    }
-  } catch (e) {
-    print('❌ Excepción en subida: $e');
+  if (permResponse.statusCode != 200 && permResponse.statusCode != 204) {
+    print('No se pudo compartir el archivo publicamente: ${permResponse.body}');
     return null;
   }
+
+  // Retorna la URL publica
+  return 'https://drive.google.com/uc?id=$fileId';
 }

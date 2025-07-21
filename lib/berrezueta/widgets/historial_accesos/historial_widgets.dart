@@ -1,3 +1,5 @@
+// lib/berrezueta/widgets/historial_accesos/historial_widgets.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -70,7 +72,7 @@ class HistorialWidgets {
     final fechaAcceso = DateFormat("d 'de' MMMM 'de' y", 'es_ES')
         .format(acceso.fechaIngreso);
     final hora = DateFormat.Hm().format(acceso.fechaIngreso);
-    final tipo = acceso.descripcion;
+    final tipo = '${acceso.usuario.nombre} ${acceso.usuario.apellido}';
 
     return InkWell(
       onTap: () {
@@ -111,7 +113,7 @@ class HistorialWidgets {
                     ],
                   ),
                 ),
-                const SizedBox(width: 1),
+                const SizedBox(width: 8),
                 Text(
                   hora,
                   style: const TextStyle(
@@ -122,7 +124,6 @@ class HistorialWidgets {
               ],
             ),
             const SizedBox(height: 8),
-            
           ],
         ),
       ),

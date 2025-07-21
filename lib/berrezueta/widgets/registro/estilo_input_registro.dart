@@ -10,6 +10,9 @@ class EstiloInputRegistro extends StatelessWidget {
   final TextEditingController? controller;
   final List<TextInputFormatter>? inputFormatters;
 
+  // NUEVO: puedes forzar un tipo de teclado si lo deseas
+  final TextInputType? keyboardType;
+
   // Para campos tipo contraseña
   final bool esContrasena;
   final bool ocultarTexto;
@@ -25,6 +28,7 @@ class EstiloInputRegistro extends StatelessWidget {
     required this.tipoCampo,
     this.controller,
     this.inputFormatters,
+    this.keyboardType, // <--- nuevo
     this.esContrasena = false,
     this.ocultarTexto = true,
     this.onToggleVisibilidad,
@@ -83,24 +87,26 @@ class EstiloInputRegistro extends StatelessWidget {
             borderSide: BorderSide(color: Colors.white),
           ),
         ),
-        keyboardType: _definirTipoTeclado(),
+        // Usa el teclado pasado por parámetro, o infiere automáticamente
+        keyboardType: keyboardType ?? _definirTipoTeclado(),
       ),
     );
   }
 
   TextInputType _definirTipoTeclado() {
-  switch (tipoCampo.toLowerCase()) {
-    case 'cedula':
-    case 'telefono':
-      return TextInputType.number;
-    case 'email':
-      return TextInputType.emailAddress;
-    case 'password':
-    case 'contraseña':
-      return TextInputType.visiblePassword;
-    default:
-      return TextInputType.text;
+    switch (tipoCampo.toLowerCase()) {
+      case 'cedula':
+        return TextInputType.number;
+      case 'telefono':
+        // Por defecto, acepta también el +
+        return TextInputType.phone;
+      case 'email':
+        return TextInputType.emailAddress;
+      case 'password':
+      case 'contraseña':
+        return TextInputType.visiblePassword;
+      default:
+        return TextInputType.text;
+    }
   }
-}
-
 }

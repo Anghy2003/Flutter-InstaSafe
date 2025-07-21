@@ -4,23 +4,30 @@ import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
 
 class DrawerMenuLateral extends StatelessWidget {
-  const DrawerMenuLateral({super.key});
+  const DrawerMenuLateral({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final int rol = UsuarioActual.idRol ?? 0;
 
-    return Drawer(
-      child: ClipRRect(
-        borderRadius: BorderRadius.zero,
-        child: DegradadoFondoScreen(
-          child: Container(
-            height: double.infinity,
-            width: double.infinity,
-            color: Colors.transparent,
+    return TweenAnimationBuilder<Offset>(
+      
+      tween: Tween(begin: const Offset(-1.0, 0), end: Offset.zero),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      builder: (context, offset, child) {
+        return FractionalTranslation(
+          translation: offset,
+          child: child,
+        );
+      },
+      child: Drawer(
+        child: ClipRRect(
+          borderRadius: BorderRadius.zero,
+          child: DegradadoFondoScreen(
             child: Column(
               children: [
-                // 🟦 Header
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
@@ -57,31 +64,19 @@ class DrawerMenuLateral extends StatelessWidget {
                   ),
                 ),
 
-                // 🧭 Opciones dinámicas según rol
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
                         const SizedBox(height: 10),
                         _separadorTurquesa(),
-
-                        // 📜 Historial → visible para todos
                         _buildMenuItem(context, Icons.history, 'Historial', '/historial'),
-
-                        // 👤 Perfil → visible para todos
                         _buildMenuItem(context, Icons.person, 'Perfil', '/perfil'),
-
-                        // 🔐 Registrar Ingreso → solo para Guardia, Admin, Seguridad
                         if ([1, 2, 5].contains(rol))
                           _buildMenuItem(context, Icons.qr_code_scanner, 'Control de acceso', '/escaneo'),
-
-                        // 🆕 Registrar Usuario → solo para Admin y Seguridad
                         if (rol == 1 || rol == 5)
                           _buildMenuItem(context, Icons.person_add, 'Registrar Usuario', '/registro'),
-
-                        // 🚪 Salir → visible para todos
                         _buildMenuItem(context, Icons.logout, 'Salir', '/login'),
-
                         const SizedBox(height: 20),
                       ],
                     ),
@@ -95,7 +90,6 @@ class DrawerMenuLateral extends StatelessWidget {
     );
   }
 
-  // 🌊 Línea decorativa
   Widget _separadorTurquesa() {
     return Container(
       height: 1,
@@ -104,7 +98,6 @@ class DrawerMenuLateral extends StatelessWidget {
     );
   }
 
-  // 🧱 Ítem de menú
   Widget _buildMenuItem(BuildContext context, IconData icon, String title, String route) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

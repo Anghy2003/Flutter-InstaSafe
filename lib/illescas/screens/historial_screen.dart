@@ -25,28 +25,26 @@ class _HistorialScreenState extends State<HistorialScreen> {
     _initializeData();
   }
 
-  /// Inicializa los datos al cargar la pantalla
   Future<void> _initializeData() async {
     await _fetchFechasDisponibles();
   }
 
-  /// Obtiene las fechas disponibles del servicio
+  /// Obtiene las fechas (con "Todas" al inicio) ya ordenadas por el servicio.
   Future<void> _fetchFechasDisponibles() async {
     try {
       final fechas = await HistorialService.fetchFechasDisponibles();
       setState(() {
         fechasDisponibles = fechas;
-        fechaSeleccionada = fechasDisponibles.first;
+        fechaSeleccionada = fechas.first;
       });
       await _fetchAccesos(fechaSeleccionada!);
     } catch (e) {
-      // ignore: avoid_print
       print('Error al obtener fechas disponibles: $e');
-      // Aquí podrías mostrar un snackbar o algún mensaje de error
     }
   }
 
-  /// Obtiene los accesos filtrados por fecha y rol
+  /// Carga accesos usando siempre fetchAccesos; el servicio internamente
+  /// decide si devuelve todos o solo los de una fecha.
   Future<void> _fetchAccesos(String fecha) async {
     setState(() {
       cargando = true;
@@ -56,33 +54,28 @@ class _HistorialScreenState extends State<HistorialScreen> {
     try {
       final eventos = await HistorialService.fetchAccesos(fecha);
       final eventosFiltrados = HistorialFiltro.filterEventosByRole(eventos);
-      
-      // Simula un pequeño delay para mejorar la UX
+
+      // Orden descendente por fechaIngreso
+      eventosFiltrados.sort((a, b) =>
+          b.fechaIngreso.compareTo(a.fechaIngreso)
+      );
+
+      // Pequeño delay para mejorar UX
       await Future.delayed(const Duration(milliseconds: 500));
-      
-      setState(() {
-        accesos = eventosFiltrados;
-      });
+
+      setState(() => accesos = eventosFiltrados);
     } catch (e) {
-      // ignore: avoid_print
       print('Error al obtener accesos: $e');
-      // Aquí podrías mostrar un snackbar o algún mensaje de error
     } finally {
-      setState(() {
-        cargando = false;
-      });
+      setState(() => cargando = false);
     }
   }
 
-  /// Maneja el cambio de fecha seleccionada
   void _onFechaChanged(String nuevaFecha) {
-    setState(() {
-      fechaSeleccionada = nuevaFecha;
-    });
+    setState(() => fechaSeleccionada = nuevaFecha);
     _fetchAccesos(nuevaFecha);
   }
 
-  /// Maneja el refresh manual
   void _onRefresh() {
     if (fechaSeleccionada != null) {
       _fetchAccesos(fechaSeleccionada!);
@@ -103,7 +96,6 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
   }
 
-  /// Construye el AppBar
   PreferredSizeWidget _buildAppBar(double ancho) {
     return AppBar(
       backgroundColor: Colors.transparent,
@@ -126,7 +118,6 @@ class _HistorialScreenState extends State<HistorialScreen> {
           child: IconButton(
             icon: Icon(
               Icons.history,
-              // ignore: deprecated_member_use
               color: Colors.white.withOpacity(0.7),
               size: 28,
             ),
@@ -137,13 +128,11 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
   }
 
-  /// Construye el cuerpo principal
   Widget _buildBody(double ancho) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         children: [
-          // Selector de fecha
           HistorialWidgets.buildFechaSelector(
             ancho: ancho,
             fechasDisponibles: fechasDisponibles,
@@ -151,20 +140,13 @@ class _HistorialScreenState extends State<HistorialScreen> {
             onFechaChanged: _onFechaChanged,
           ),
           const SizedBox(height: 16),
-          
-          // Lista de accesos
-          Expanded(
-            child: _buildContent(),
-          ),
-          
-          // Footer
+          Expanded(child: _buildContent()),
           HistorialWidgets.buildFooter(),
         ],
       ),
     );
   }
 
-  /// Construye el contenido principal según el estado
   Widget _buildContent() {
     if (cargando) {
       return HistorialWidgets.buildLoadingState();

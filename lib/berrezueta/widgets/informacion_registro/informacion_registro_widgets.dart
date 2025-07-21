@@ -1,17 +1,17 @@
+// lib/berrezueta/widgets/informacion_registro/informacion_registro_widgets.dart
+
 import 'package:flutter/material.dart';
 import 'package:instasafe/berrezueta/models/informacion_registro_model.dart';
 import 'package:instasafe/berrezueta/widgets/informacion_registro/footer_informacion.dart';
 import 'package:instasafe/berrezueta/widgets/informacion_registro/tarjeta_informacion.dart';
 
 class InformacionRegistroWidgets {
-  /// Widget para mostrar el estado de carga
   static Widget buildLoadingState() {
     return const Center(
       child: CircularProgressIndicator(color: Colors.white),
     );
   }
 
-  /// Widget para mostrar cuando no se encuentra el evento
   static Widget buildErrorState() {
     return const Center(
       child: Text(
@@ -26,51 +26,60 @@ class InformacionRegistroWidgets {
     );
   }
 
-  /// Widget para mostrar la foto de perfil
+  /// Ahora usamos un [Stack] para que el loader esté **siempre visible**
+  /// mientras la imagen se descarga, y solo desaparezca cuando el widget
+  /// de la imagen haya terminado de construirse.
   static Widget buildProfilePhoto({
     required String fotoPerfil,
     required double ancho,
     required bool esFotoUrl,
   }) {
+    final size = ancho * 0.36;
+    if (!esFotoUrl) {
+      return Center(
+        child: ClipOval(
+          child: Image.asset(fotoPerfil, fit: BoxFit.cover, width: size, height: size),
+        ),
+      );
+    }
     return Center(
       child: SizedBox(
-        width: ancho * 0.36,
-        height: ancho * 0.36,
+        width: size,
+        height: size,
         child: ClipOval(
-          child: esFotoUrl
-              ? Image.network(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Fondo blanco
+              Container(color: Colors.white),
+              // Loader en el centro
+              const CircularProgressIndicator(
+                color: Colors.deepPurpleAccent,
+                strokeWidth: 2.5,
+              ),
+              // Una vez cargada, la imagen lo cubrirá automáticamente
+              Positioned.fill(
+                child: Image.network(
                   fotoPerfil,
                   fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: Colors.white,
-                      alignment: Alignment.center,
-                      child: const CircularProgressIndicator(
-                        color: Colors.deepPurpleAccent,
-                        strokeWidth: 2.5,
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.white,
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.error_outline,
-                        color: Colors.redAccent,
-                        size: 40,
-                      ),
-                    );
-                  },
-                )
-              : Image.asset(fotoPerfil, fit: BoxFit.cover),
+                  errorBuilder: (context, error, stack) => Container(
+                    color: Colors.white,
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.error_outline,
+                      color: Colors.redAccent,
+                      size: 40,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// Widget para mostrar un divisor
   static Widget buildDivider() {
     return Column(
       children: [
@@ -81,7 +90,6 @@ class InformacionRegistroWidgets {
     );
   }
 
-  /// Widget para mostrar contenido completo
   static Widget buildInformacionContent({
     required InformacionRegistroModel registro,
     required double ancho,
@@ -91,7 +99,6 @@ class InformacionRegistroWidgets {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Foto de perfil
           buildProfilePhoto(
             fotoPerfil: registro.fotoPerfil,
             ancho: ancho,
@@ -99,7 +106,6 @@ class InformacionRegistroWidgets {
           ),
           const SizedBox(height: 20),
 
-          // Información del usuario
           tarjetaInformacion(
             icon: Icons.person,
             titulo: 'Nombre',
@@ -118,7 +124,6 @@ class InformacionRegistroWidgets {
 
           buildDivider(),
 
-          // Información del guardia y tiempos
           tarjetaInformacion(
             icon: Icons.person_pin_circle_rounded,
             titulo: 'Guardia encargado',
@@ -137,14 +142,12 @@ class InformacionRegistroWidgets {
 
           buildDivider(),
 
-          // Información adicional
           tarjetaInformacion(
             icon: Icons.location_on,
             titulo: 'Lugar',
             valor: registro.lugar,
           ),
 
-          // Descripción como párrafo
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(

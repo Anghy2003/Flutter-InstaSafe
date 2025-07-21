@@ -23,13 +23,26 @@ class Evento {
   });
 
   factory Evento.fromJson(Map<String, dynamic> json) {
+    // 🚩 Cambios aquí: usa .toLocal() para asegurarte que la fecha sea la de Ecuador/dispositivo
+    final fechaIngresoStr = json['fechaingreso'] ?? '';
+    final fechaSalidaStr = json['fechasalida'] ?? '';
+
+    // Parse seguro con toLocal
+    final fechaIngreso = fechaIngresoStr.isNotEmpty
+        ? DateTime.parse(fechaIngresoStr).toLocal()
+        : DateTime(2000);
+
+    final fechaSalida = fechaSalidaStr.isNotEmpty
+        ? DateTime.parse(fechaSalidaStr).toLocal()
+        : DateTime(2000);
+
     return Evento(
       id: json['id'] ?? 0,
       titulo: json['titulo'] ?? '',
       descripcion: json['descripcion'] ?? '',
       lugar: json['lugar'] ?? '',
-      fechaIngreso: DateTime.tryParse(json['fechaingreso'] ?? '') ?? DateTime(2000),
-      fechaSalida: DateTime.tryParse(json['fechasalida'] ?? '') ?? DateTime(2000),
+      fechaIngreso: fechaIngreso,
+      fechaSalida: fechaSalida,
       usuario: json['id_usuario'] != null
           ? Usuario.fromJson(json['id_usuario'])
           : Usuario(

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:instasafe/berrezueta/screens/loader_animado_screen.dart';
 import 'package:instasafe/illescas/screens/CamaraGuiadaScreen%20.dart';
 import 'package:instasafe/illescas/screens/QrScannerScreen.dart';
 import 'package:instasafe/illescas/screens/faceplus_service.dart';
@@ -109,45 +110,51 @@ class EscaneoQRScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+
 Future<void> tomarFotoYVerificar(BuildContext context) async {
-  final mounted = context.mounted;
-  try {
-    File? fotoTomada;
+  File? fotoTomada;
 
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CamaraGuiadaScreen(onFotoCapturada: (foto) => fotoTomada = foto),
-      ),
-    );
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => CamaraGuiadaScreen(onFotoCapturada: (foto) => fotoTomada = foto),
+    ),
+  );
 
-    if (fotoTomada == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se tomó ninguna foto.')),
-        );
-      }
-      return;
+  if (fotoTomada == null) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se tomó ninguna foto.')),
+      );
     }
+    return;
+  }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+  // 🔥 ValueNotifier para mensaje dinámico
+  final mensajeLoader = ValueNotifier<String>("Procesando rostro...");
 
-    // 🔍 Generar plantilla facial
+  // 💡 Mostramos loader ANTES de comenzar procesos pesados
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => LoaderAnimado(mensajeNotifier: mensajeLoader),
+  );
+
+  // Espera microtask para asegurar el loader aparece ANTES de procesar
+  await Future.microtask(() {});
+
+  try {
+    // 1️⃣ Procesamiento facial
+    mensajeLoader.value = "Procesando rostro...";
     final generador = GeneradorPlantillaFacial();
     await generador.inicializarModelo();
     final resultadoGeneracion = await generador.generarDesdeImagen(fotoTomada!);
     final plantillaBase64 = resultadoGeneracion['plantilla'];
 
-    PlantillaFacial? plantillaCapturada;
-    if (plantillaBase64 != null) {
-      plantillaCapturada = PlantillaFacial.fromBase64(plantillaBase64);
-    }
-
-    // 👤 Comparación local (opcional)
+    // 2️⃣ Comparación local
+    mensajeLoader.value = "Comparando rostro...";
     List<UsuarioLigero> usuarios = [];
     try {
       final response = await http.get(
@@ -158,7 +165,10 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
         usuarios = jsonList.map((e) => UsuarioLigero.fromJson(e)).toList();
       }
     } catch (_) {}
-
+    PlantillaFacial? plantillaCapturada;
+    if (plantillaBase64 != null) {
+      plantillaCapturada = PlantillaFacial.fromBase64(plantillaBase64);
+    }
     final resultadoLocal = plantillaCapturada != null
         ? ComparadorFacialLigero.comparar(plantillaCapturada, usuarios)
         : null;
@@ -167,15 +177,17 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
       print('⚠ Coincidencia local: ${resultadoLocal['usuario']?.cedula}');
     }
 
-    // ☁️ Subir a Cloudinary
+    // 3️⃣ Subida a Cloudinary
     final imagenReducida = await UtilImagen.reducirImagen(fotoTomada!);
     final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida);
 
-    // 🔍 Verificar en Face++
+    // 4️⃣ Consulta en Face++
+    mensajeLoader.value = "Verificando rostro...";
     final resultadoFacePlus = await FacePlusService.verificarFaceDesdeUrl(urlCloudinary ?? '');
-    Navigator.of(context).pop(); // Cerrar loader
 
-    if (!mounted) return;
+    if (context.mounted) Navigator.of(context).pop(); // Cierra loader
+
+    if (!context.mounted) return;
 
     if (resultadoFacePlus != null) {
       final cedulaDetectada = resultadoFacePlus['user_id']?.toString();
@@ -187,7 +199,8 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
         return;
       }
 
-      // 📥 Obtener datos del usuario por cédula
+      // 5️⃣ Descargar datos del usuario
+      mensajeLoader.value = "Descargando datos del usuario...";
       final response = await http.get(
         Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/cedula/$cedulaDetectada'),
       );
@@ -230,7 +243,4 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
       );
     }
   }
-}
-
-
 }
