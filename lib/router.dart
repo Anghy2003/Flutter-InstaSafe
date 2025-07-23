@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:instasafe/berrezueta/screens/informacion_registro_screen.dart';
 import 'package:instasafe/berrezueta/screens/menu_principal_screen.dart';
 import 'package:instasafe/berrezueta/screens/registro_usuario_screen.dart';
+import 'package:instasafe/berrezueta/screens/registro_visitante_screen.dart';
 import 'package:instasafe/illescas/screens/escaneo_qr_screen.dart';
 import 'package:instasafe/illescas/screens/historial_screen.dart';
 import 'package:instasafe/suqui/screens/login_screen.dart';
@@ -41,6 +42,11 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/escaneo',
       builder: (context, state) => const EscaneoQRScreen(),
+    ),
+
+    GoRoute(
+      path: '/visitante',
+      builder: (context, state) => const RegistroVisitanteScreen(),
     ),
 
     GoRoute(path: '/generarQr', builder: (context, state) => const EscanearScreen()),

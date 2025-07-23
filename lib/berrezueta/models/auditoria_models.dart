@@ -1,4 +1,5 @@
 enum EventoAuditoria {
+  visitanteRegistrado,
   usuarioRegistrado,
   actualizacionDatos,
   usuarioEliminado,
@@ -7,6 +8,7 @@ enum EventoAuditoria {
 extension EventoAuditoriaExtension on EventoAuditoria {
   String get nombre {
     switch (this) {
+      case EventoAuditoria.visitanteRegistrado:   return 'Visitante registrado';
       case EventoAuditoria.usuarioRegistrado:   return 'Usuario registrado';
       case EventoAuditoria.actualizacionDatos:  return 'Actualización de datos';
       case EventoAuditoria.usuarioEliminado:    return 'Usuario eliminado';

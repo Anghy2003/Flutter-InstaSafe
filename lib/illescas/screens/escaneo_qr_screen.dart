@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:instasafe/berrezueta/screens/loader_animado_screen.dart';
+import 'package:instasafe/berrezueta/widgets/comparar_visitante/tomar_foto_visitante.dart'; // <<--- Importa tu nueva pantalla
 import 'package:instasafe/illescas/screens/CamaraGuiadaScreen%20.dart';
 import 'package:instasafe/illescas/screens/QrScannerScreen.dart';
 import 'package:instasafe/illescas/screens/faceplus_service.dart';
@@ -66,6 +67,22 @@ class EscaneoQRScreen extends StatelessWidget {
                 subtitulo: "Captura una imagen",
                 onPressed: () => tomarFotoYVerificar(context),
               ),
+              const SizedBox(height: 40),
+              // 👉 Este es el NUEVO BOTÓN para visitantes
+              _botonOpcion(
+                context,
+                icon: Icons.emoji_people,
+                titulo: "FOTO VISITANTE",
+                subtitulo: "Captura una imagen",
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TomarFotoVisitanteScreen(),
+                    ),
+                  );
+                },
+              ),
               const Spacer(),
               Text('©IstaSafe', style: TextStyle(color: Colors.white.withOpacity(0.6))),
               const SizedBox(height: 10),
@@ -112,7 +129,7 @@ class EscaneoQRScreen extends StatelessWidget {
   }
 }
 
-
+// 👇 TU FUNCIÓN ORIGINAL PARA USUARIOS (NO LA CAMBIES)
 Future<void> tomarFotoYVerificar(BuildContext context) async {
   File? fotoTomada;
 
@@ -183,10 +200,10 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
 
     // 4️⃣ Consulta en Face++
     mensajeLoader.value = "Verificando rostro...";
-    final resultadoFacePlus = await FacePlusService.verificarFaceDesdeUrl(urlCloudinary ?? '');
+    final resultadoFacePlus =
+        await FacePlusService.verificarFaceDesdeUrl(urlCloudinary ?? '');
 
     if (context.mounted) Navigator.of(context).pop(); // Cierra loader
-
     if (!context.mounted) return;
 
     if (resultadoFacePlus != null) {
@@ -194,7 +211,9 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
 
       if (cedulaDetectada == null || cedulaDetectada.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ El rostro no tiene una cédula asociada en Face++.')),
+          const SnackBar(
+              content:
+                  Text('❌ El rostro no tiene una cédula asociada en Face++.')),
         );
         return;
       }
@@ -220,19 +239,20 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => VerificacionResultadoScreen(
-              datosUsuario: datosUsuario,
-            ),
+            builder: (_) =>
+                VerificacionResultadoScreen(datosUsuario: datosUsuario),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Usuario no encontrado en la base de datos')),
+          const SnackBar(
+              content: Text('❌ Usuario no encontrado en la base de datos')),
         );
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('😕 No se encontró coincidencia con Face++')),
+        const SnackBar(
+            content: Text('😕 No se encontró coincidencia con Face++')),
       );
     }
   } catch (e) {

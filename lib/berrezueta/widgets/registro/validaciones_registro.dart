@@ -7,15 +7,12 @@ class ValidacionesRegistro {
     if (!RegExp(r'^\d{10}$').hasMatch(cedula)) {
       return 'La cédula debe tener 10 dígitos numéricos';
     }
-
-    // Validación para cédula ecuatoriana
     final provincia = int.parse(cedula.substring(0, 2));
     final tercerDigito = int.parse(cedula.substring(2, 3));
     if (provincia < 1 || provincia > 24)
       return 'Provincia inválida en la cédula';
     if (tercerDigito > 6) return 'Formato incorrecto para cédula ecuatoriana';
 
-    // Algoritmo de validación (módulo 10)
     final coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
     int suma = 0;
     for (int i = 0; i < coeficientes.length; i++) {
@@ -24,7 +21,6 @@ class ValidacionesRegistro {
     }
     int digitoVerificador = suma % 10 == 0 ? 0 : 10 - (suma % 10);
     if (digitoVerificador != int.parse(cedula[9])) return 'Cédula inválida';
-
     return null;
   }
 
@@ -49,7 +45,6 @@ class ValidacionesRegistro {
   static String? validarTelefono(String value) {
     final telefono = value.trim();
     if (telefono.isEmpty) return 'El teléfono es obligatorio';
-    // Si empieza con +593
     if (telefono.startsWith('+593')) {
       if (telefono.length != 13)
         return 'Debe tener 13 caracteres (+593XXXXXXXXX)';
@@ -58,7 +53,6 @@ class ValidacionesRegistro {
       }
       return null;
     }
-    // Si empieza con 09
     if (telefono.startsWith('09')) {
       if (telefono.length != 10) return 'Debe tener 10 dígitos (09XXXXXXXX)';
       if (!RegExp(r'^09\d{8}$').hasMatch(telefono)) {

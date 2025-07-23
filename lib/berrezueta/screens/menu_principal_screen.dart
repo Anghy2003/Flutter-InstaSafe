@@ -125,6 +125,15 @@ class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
         ),
       );
     }
+    if ([1, 2, 5].contains(rolId)) {
+      tarjetas.add(
+        TarjetaBotonMenuPrincipal(
+          icono: Icons.emoji_people,
+          titulo: 'Registrar Visitante',
+          onPressed: () => context.push('/visitante'),
+        ),
+      );
+    }
     
     tarjetas.add(
       TarjetaBotonMenuPrincipal(

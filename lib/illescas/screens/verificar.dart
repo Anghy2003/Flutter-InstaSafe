@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:instasafe/berrezueta/services/evento_service.dart';
 import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
@@ -75,7 +76,8 @@ class _VerificacionResultadoScreenState
     } catch (e) {
       _showSnack('❌ $e', false);
     } finally {
-      Navigator.pop(context);
+      context.go('/menu');
+
     }
   }
 
