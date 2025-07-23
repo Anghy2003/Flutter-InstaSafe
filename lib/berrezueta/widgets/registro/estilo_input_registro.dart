@@ -10,7 +10,7 @@ class EstiloInputRegistro extends StatelessWidget {
   final String tipoCampo; // 'cedula', 'nombre', 'apellido', 'telefono', 'email', 'password', etc.
   final TextEditingController controller;
 
-  /// Estos son los nuevos parámetros que agregamos:
+  // Opcionales:
   final FocusNode? focusNode;
   final String? errorText;
   final VoidCallback? onEditingComplete;
@@ -27,12 +27,9 @@ class EstiloInputRegistro extends StatelessWidget {
     required this.icono,
     required this.tipoCampo,
     required this.controller,
-
-    // nuevos
     this.focusNode,
     this.errorText,
     this.onEditingComplete,
-
     this.inputFormatters,
     this.esContrasena = false,
     this.ocultarTexto = false,
@@ -41,17 +38,31 @@ class EstiloInputRegistro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Selecciona el teclado según el tipo de campo:
     TextInputType keyboardType;
+    List<TextInputFormatter>? _inputFormatters = inputFormatters;
+
     switch (tipoCampo) {
+      case 'cedula':
+        keyboardType = TextInputType.number; // Solo números
+        _inputFormatters ??= [
+          LengthLimitingTextInputFormatter(10),
+          FilteringTextInputFormatter.digitsOnly
+        ];
+        break;
+      case 'telefono':
+        keyboardType = TextInputType.phone; // Permite números y '+'
+        break;
       case 'email':
         keyboardType = TextInputType.emailAddress;
         break;
-      case 'telefono':
-        keyboardType = TextInputType.phone;
-        break;
-      case 'cedula':
       case 'nombre':
       case 'apellido':
+        keyboardType = TextInputType.text; // Letras
+        break;
+      case 'password':
+        keyboardType = TextInputType.visiblePassword;
+        break;
       default:
         keyboardType = TextInputType.text;
     }
@@ -60,7 +71,7 @@ class EstiloInputRegistro extends StatelessWidget {
       controller: controller,
       focusNode: focusNode,
       keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
+      inputFormatters: _inputFormatters,
       obscureText: esContrasena ? ocultarTexto : false,
       decoration: InputDecoration(
         labelText: etiqueta,
@@ -79,7 +90,7 @@ class EstiloInputRegistro extends StatelessWidget {
       ),
       textInputAction: TextInputAction.next,
       onEditingComplete: onEditingComplete,
-      validator: (_) => null, // dejamos la validación por separado
+      validator: (_) => null, // La validación se hace externamente
     );
   }
 }

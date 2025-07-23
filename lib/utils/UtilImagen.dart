@@ -1,34 +1,37 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'package:http/http.dart' as http;
-import 'package:image/image.dart' as img;
+import 'package:instasafe/berrezueta/services/isolate_helpers.dart';
 import 'package:path_provider/path_provider.dart';
 
+
+
 class UtilImagen {
-  /// 🔧 Redimensiona y comprime la imagen para evitar errores por tamaño
+  /// 🔧 Redimensiona y comprime la imagen en un Isolate
   static Future<File> reducirImagen(File original) async {
-    final bytes = await original.readAsBytes();
-    final image = img.decodeImage(bytes);
-    if (image == null) throw Exception('No se pudo leer la imagen');
-
-    final resized = img.copyResize(image, width: 400); // Reducción a 400 px
-    final jpg = img.encodeJpg(resized, quality: 30);   // Alta compresión
-
-    final dir = await getTemporaryDirectory();
-    final nuevoArchivo = File('${dir.path}/reducida_${DateTime.now().millisecondsSinceEpoch}.jpg');
-    await nuevoArchivo.writeAsBytes(jpg);
-    return nuevoArchivo;
+  final tempDir = await getTemporaryDirectory(); // <<--- AQUÍ sí puedes
+  final receivePort = ReceivePort();
+  await Isolate.spawn(
+    reducirImagenIsolate,
+    ReducirImagenArgs(original.path, tempDir.path, receivePort.sendPort),
+  );
+  final result = await receivePort.first as Map;
+  if (result.containsKey('filePath')) {
+    return File(result['filePath']);
+  } else {
+    throw Exception(result['error'] ?? 'Error desconocido en reducción');
   }
+}
+
 
   /// ☁️ Sube imagen a Cloudinary para uso en Face++
   static Future<String?> subirACloudinary(File imagen) async {
     try {
       final uri = Uri.parse('https://api.cloudinary.com/v1_1/dizj9rwfx/image/upload');
-
       final request = http.MultipartRequest('POST', uri)
         ..fields['upload_preset'] = 'rostros_usuarios'
         ..files.add(await http.MultipartFile.fromPath('file', imagen.path));
-
       final response = await request.send();
 
       if (response.statusCode == 200) {

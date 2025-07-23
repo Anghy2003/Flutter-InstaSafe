@@ -5,6 +5,7 @@ import 'package:instasafe/berrezueta/screens/registro_usuario_screen.dart';
 import 'package:instasafe/berrezueta/screens/registro_visitante_screen.dart';
 import 'package:instasafe/illescas/screens/escaneo_qr_screen.dart';
 import 'package:instasafe/illescas/screens/historial_screen.dart';
+import 'package:instasafe/illescas/screens/verificar.dart';
 import 'package:instasafe/suqui/screens/login_screen.dart';
 import 'package:instasafe/suqui/screens/perfil_screen.dart';
 import 'package:instasafe/suqui/screens/scanner_screen.dart';
@@ -49,6 +50,17 @@ final appRouter = GoRouter(
       builder: (context, state) => const RegistroVisitanteScreen(),
     ),
 
-    GoRoute(path: '/generarQr', builder: (context, state) => const EscanearScreen()),
+    GoRoute(
+      path: '/verificacion-resultado',
+      builder: (context, state) {
+        final datosUsuario = state.extra as Map<String, dynamic>;
+        return VerificacionResultadoScreen(datosUsuario: datosUsuario);
+      },
+    ),
+
+    GoRoute(
+      path: '/generarQr',
+      builder: (context, state) => const EscanearScreen(),
+    ),
   ],
 );

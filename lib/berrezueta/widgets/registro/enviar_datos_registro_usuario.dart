@@ -29,24 +29,21 @@ Future<String> enviarDatosRegistroUsuario({
   try {
     print('🔐 Iniciando envío de datos para $cedula');
 
-    // 1️⃣ Decodificar la plantilla Base64
+    // 1️⃣ Decodifica la plantilla
     final plantillaNueva = PlantillaFacial.fromBase64(plantillaFacialBase64);
     print('✅ Plantilla facial decodificada');
 
-    // 2️⃣ Obtener plantillas existentes (timeout 10s)
-    print('📡 Consultando plantillas existentes del backend...');
+    // 2️⃣ (Opcional: compara localmente si lo requieres)
+    final tPlantillas = DateTime.now();
     final respPlant = await http
-        .get(Uri.parse(
-            'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas'))
+        .get(Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas'))
         .timeout(const Duration(seconds: 10));
+    print('Tiempo plantillas: ${DateTime.now().difference(tPlantillas).inMilliseconds} ms');
     if (respPlant.statusCode != 200) {
       return '❌ Error al obtener plantillas: ${respPlant.statusCode}';
     }
     final List<dynamic> jsonList = jsonDecode(respPlant.body);
-    print('📦 Plantillas obtenidas: ${jsonList.length}');
 
-    // 3️⃣ Comparación local (sin compute)
-    print('🔎 Verificando coincidencia local...');
     Map<String, dynamic>? resultadoLocal;
     try {
       resultadoLocal = ComparadorFacialLigero.comparar(
@@ -60,49 +57,34 @@ Future<String> enviarDatosRegistroUsuario({
       final usuarioLocal = resultadoLocal['usuario'] as UsuarioLigero;
       final distancia =
           (resultadoLocal['distancia'] as double).toStringAsFixed(3);
-      print(
-          '⚠ Coincidencia local con ${usuarioLocal.cedula} (distancia: $distancia)');
+      print('⚠ Coincidencia local con ${usuarioLocal.cedula} (distancia: $distancia)');
+      // Si quieres abortar el registro, puedes retornar aquí.
     } else {
       print('✅ No se detectó coincidencia local directa');
     }
 
-    // 4️⃣ Redimensionar + subir a Cloudinary (timeout 20s)
-    print('🖼️ Redimensionando imagen para Cloudinary...');
+    // 3️⃣ Redimensiona antes de subir (importante para velocidad)
+    print('🖼️ Redimensionando imagen para Drive...');
+    final tReducir = DateTime.now();
     final imagenReducida = await UtilImagen.reducirImagen(imagen);
-    print('📤 Subiendo imagen a Cloudinary...');
-    final urlCloudinary = await UtilImagen
-        .subirACloudinary(imagenReducida)
-        .timeout(const Duration(seconds: 20));
-    if (urlCloudinary == null) {
-      return '❌ Error al subir imagen a Cloudinary';
-    }
-    print('✅ Imagen subida a Cloudinary: $urlCloudinary');
+    print('Tiempo reducir: ${DateTime.now().difference(tReducir).inMilliseconds} ms');
 
-    // 5️⃣ Subir imagen a Drive (timeout 20s)
+    // 4️⃣ Sube imagen a Drive
     print('📤 Subiendo imagen a Drive...');
-    final fotoUrl = await subirImagenADrive(imagen, carpetaDriveId)
+    final tDrive = DateTime.now();
+    final fotoUrl = await subirImagenADrive(imagenReducida, carpetaDriveId)
         .timeout(const Duration(seconds: 20));
+    print('Tiempo subida Drive: ${DateTime.now().difference(tDrive).inMilliseconds} ms');
     if (fotoUrl == null) {
       return '❌ Error al subir imagen a Drive';
     }
     print('✅ Imagen subida a Drive: $fotoUrl');
 
-    // 6️⃣ Registrar rostro en Face++ (timeout 15s)
-    print('😶 Registrando rostro en Face++...');
-    final exitoFaceRegistro = await FacePlusService
-        .registrarFaceDesdeUrl(urlCloudinary, cedula)
-        .timeout(const Duration(seconds: 15));
-    if (!exitoFaceRegistro) {
-      return '❌ No se pudo registrar rostro en Face++';
-    }
-    print('✅ Rostro registrado en Face++');
-
-    // 7️⃣ Registrar usuario en backend (timeout 15s)
-    print('🧾 Registrando usuario en backend...');
+    // 5️⃣ Guarda usuario en backend con URL real de foto
+    final tRegistro = DateTime.now();
     final registroResponse = await http
         .post(
-          Uri.parse(
-              'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios'),
+          Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios'),
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
           body: {
             'cedula': cedula,
@@ -118,6 +100,7 @@ Future<String> enviarDatosRegistroUsuario({
           },
         )
         .timeout(const Duration(seconds: 15));
+    print('Tiempo registro backend: ${DateTime.now().difference(tRegistro).inMilliseconds} ms');
 
     if (registroResponse.statusCode == 200 ||
         registroResponse.statusCode == 201) {
@@ -140,6 +123,30 @@ Future<String> enviarDatosRegistroUsuario({
       } catch (e) {
         print('⚠️ No se pudo guardar la auditoría: $e');
       }
+
+      // 6️⃣ (Opcional) Sube a Cloudinary y Face++ en segundo plano
+      Future(() async {
+        try {
+          print('📤 Subiendo imagen a Cloudinary...');
+          final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida)
+              .timeout(const Duration(seconds: 20));
+          if (urlCloudinary != null) {
+            print('✅ Imagen subida a Cloudinary: $urlCloudinary');
+
+            print('😶 Registrando rostro en Face++...');
+            final exitoFaceRegistro = await FacePlusService
+                .registrarFaceDesdeUrl(urlCloudinary, cedula)
+                .timeout(const Duration(seconds: 15));
+            if (!exitoFaceRegistro) {
+              print('❌ No se pudo registrar rostro en Face++');
+            } else {
+              print('✅ Rostro registrado en Face++');
+            }
+          }
+        } catch (e) {
+          print('❌ Error en proceso de nube/Face++ en background: $e');
+        }
+      });
 
       return 'ok';
     } else {

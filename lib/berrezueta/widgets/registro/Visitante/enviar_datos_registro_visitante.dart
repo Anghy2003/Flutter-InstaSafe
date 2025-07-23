@@ -1,5 +1,3 @@
-// enviar_datos_registro_visitante.dart
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -15,7 +13,7 @@ import 'package:instasafe/berrezueta/widgets/registro/subir_imagen_drive.dart';
 import 'package:instasafe/utils/UtilImagen.dart';
 import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 
-Future<String> enviarDatosRegistroVisitante({
+Future<Map<String, dynamic>> enviarDatosRegistroVisitante({
   required String nombre,
   required String apellido,
   required int idRol,
@@ -61,13 +59,13 @@ Future<String> enviarDatosRegistroVisitante({
     print('📤 Subiendo a Cloudinary…');
     final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida)
         .timeout(const Duration(seconds: 20));
-    if (urlCloudinary == null) return '❌ Error al subir a Cloudinary';
+    if (urlCloudinary == null) return {'ok': false, 'error': '❌ Error al subir a Cloudinary'};
 
     // 4️⃣ Subir imagen original a Drive
     print('📤 Subiendo a Drive…');
     final fotoUrl = await subirImagenADrive(imagen, carpetaDriveId)
         .timeout(const Duration(seconds: 20));
-    if (fotoUrl == null) return '❌ Error al subir a Drive';
+    if (fotoUrl == null) return {'ok': false, 'error': '❌ Error al subir a Drive'};
 
     // 5️⃣ Crear visitante en backend
     print('🧾 Creando visitante en backend…');
@@ -84,7 +82,7 @@ Future<String> enviarDatosRegistroVisitante({
     ).timeout(const Duration(seconds: 15));
 
     if (respCreate.statusCode != 200 && respCreate.statusCode != 201) {
-      return '❌ Error backend: ${respCreate.body}';
+      return {'ok': false, 'error': '❌ Error backend: ${respCreate.body}'};
     }
     final created = jsonDecode(respCreate.body) as Map<String, dynamic>;
     visitanteId = (created['id'] as num).toInt();
@@ -101,7 +99,7 @@ Future<String> enviarDatosRegistroVisitante({
       await http.delete(
         Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$visitanteId'),
       );
-      return '❌ No se pudo registrar rostro en Face++';
+      return {'ok': false, 'error': '❌ No se pudo registrar rostro en Face++'};
     }
     print('✅ Rostro registrado en Face++');
 
@@ -117,7 +115,11 @@ Future<String> enviarDatosRegistroVisitante({
       print('📝 Auditoría registrada');
     }
 
-    return 'ok';
+    // --- DEVUELVE EL VISITANTE CREADO + OK ---
+    return {
+      'ok': true,
+      'visitante': created, // ← contiene los datos del visitante registrado
+    };
   } on TimeoutException catch (te) {
     print('⌛ Timeout: ${te.message}');
     if (visitanteId > 0) {
@@ -125,7 +127,7 @@ Future<String> enviarDatosRegistroVisitante({
         Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$visitanteId'),
       );
     }
-    return '⌛ Timeout: ${te.message}';
+    return {'ok': false, 'error': '⌛ Timeout: ${te.message}'};
   } catch (e) {
     print('❌ Excepción: $e');
     if (visitanteId > 0) {
@@ -133,6 +135,6 @@ Future<String> enviarDatosRegistroVisitante({
         Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$visitanteId'),
       );
     }
-    return '❌ Error inesperado: $e';
+    return {'ok': false, 'error': '❌ Error inesperado: $e'};
   }
 }

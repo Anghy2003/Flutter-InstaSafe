@@ -30,16 +30,12 @@ class UsuarioLigero {
   final int id;
   final String nombre;
   final String correo;
-  UsuarioLigero({
-    required this.id,
-    required this.nombre,
-    required this.correo,
-  });
+  UsuarioLigero({required this.id, required this.nombre, required this.correo});
   factory UsuarioLigero.fromJson(Map<String, dynamic> json) => UsuarioLigero(
-        id: json['id'],
-        nombre: json['nombre'],
-        correo: json['correo'],
-      );
+    id: json['id'],
+    nombre: json['nombre'],
+    correo: json['correo'],
+  );
 }
 
 class RegistroUsuarioScreen extends StatefulWidget {
@@ -53,28 +49,28 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   final _formKey = GlobalKey<FormState>();
 
   // Controllers
-  final _cedulaController   = TextEditingController();
-  final _nombreController   = TextEditingController();
+  final _cedulaController = TextEditingController();
+  final _nombreController = TextEditingController();
   final _apellidoController = TextEditingController();
   final _telefonoController = TextEditingController();
-  final _emailController    = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   // FocusNodes
-  final _cedulaFocus   = FocusNode();
-  final _nombreFocus   = FocusNode();
+  final _cedulaFocus = FocusNode();
+  final _nombreFocus = FocusNode();
   final _apellidoFocus = FocusNode();
   final _telefonoFocus = FocusNode();
-  final _emailFocus    = FocusNode();
+  final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
-  File?     _imagenSeleccionada;
+  File? _imagenSeleccionada;
   DateTime? _fechaNacimiento;
-  String?   _generoSeleccionado;
-  int?      _rolSeleccionado;
-  bool      _ocultarPassword = true;
-  bool      _isLoading       = false;
-  bool      _mostrarErrorFoto = false; // Nueva variable para controlar error de foto
+  String? _generoSeleccionado;
+  int? _rolSeleccionado;
+  bool _ocultarPassword = true;
+  bool _isLoading = false;
+  bool _mostrarErrorFoto = false; // Nueva variable para controlar error de foto
 
   List<Rol> roles = [];
 
@@ -157,32 +153,38 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
     for (var campo in _erroresCampos.keys) {
       _validarCampo(campo);
     }
-    
+
     // Verificar si falta la foto
     bool faltaFoto = _imagenSeleccionada == null;
-    
+
     setState(() {
       _mostrarErrorFoto = faltaFoto; // Actualizar el estado del error de foto
     });
-    
+
     // Si hay errores o falta foto
     if (_erroresCampos.values.any((e) => e != null) || faltaFoto) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Complete todos los campos correctamente')),
+        const SnackBar(
+          content: Text('❌ Complete todos los campos correctamente'),
+        ),
       );
       return;
     }
-    
+
     _registrarUsuario();
   }
 
   Future<void> _obtenerRoles() async {
     try {
-      final uri = Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/roles');
-      final resp = await http.get(uri).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw TimeoutException('Timeout al obtener roles'),
+      final uri = Uri.parse(
+        'https://spring-instasafe-441403171241.us-central1.run.app/api/roles',
       );
+      final resp = await http
+          .get(uri)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('Timeout al obtener roles'),
+          );
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body) as List<dynamic>;
         setState(() => roles = data.map((e) => Rol.fromJson(e)).toList());
@@ -190,11 +192,13 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
         throw Exception('Error ${resp.statusCode} al obtener roles');
       }
     } on TimeoutException catch (te) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('⌛ ${te.message}')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('⌛ ${te.message}')));
     } catch (e) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error al obtener roles: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('❌ Error al obtener roles: $e')));
     }
   }
 
@@ -202,7 +206,8 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
     setState(() {
       if (esValida) {
         _imagenSeleccionada = archivo;
-        _mostrarErrorFoto = false; // Quitar el error cuando se selecciona una foto válida
+        _mostrarErrorFoto =
+            false; // Quitar el error cuando se selecciona una foto válida
       } else {
         _imagenSeleccionada = null;
         // No cambiar _mostrarErrorFoto aquí, solo cuando se valide el formulario
@@ -220,85 +225,101 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
     _passwordController.clear();
     setState(() {
       _imagenSeleccionada = null;
-      _mostrarErrorFoto   = false;
-      final now            = DateTime.now();
-      _fechaNacimiento     = DateTime(now.year - 18, now.month, now.day);
-      _generoSeleccionado  = null;
-      _rolSeleccionado     = null;
-      _ocultarPassword     = true;
+      _mostrarErrorFoto = false;
+      final now = DateTime.now();
+      _fechaNacimiento = DateTime(now.year - 18, now.month, now.day);
+      _generoSeleccionado = null;
+      _rolSeleccionado = null;
+      _ocultarPassword = true;
       _erroresCampos.updateAll((_, __) => null);
     });
   }
 
   Future<void> _registrarUsuario() async {
-  FocusScope.of(context).unfocus();
-  setState(() => _isLoading = true);
-  await Future.delayed(const Duration(milliseconds: 100));
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 100));
 
-  try {
-    // Inicializar modelo facial
-    final generador = GeneradorPlantillaFacial();
-    await generador.inicializarModelo().timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => throw TimeoutException('Timeout modelo facial'),
-    );
-    // Generar plantilla
-    final genResult = await generador.generarDesdeImagen(_imagenSeleccionada!)
-      .timeout(const Duration(seconds: 30),
-        onTimeout: () => throw TimeoutException('Timeout generando plantilla'));
-    final plantilla = genResult['plantilla'] as String?;
-    if (plantilla == null) throw Exception('Error generando plantilla');
+    try {
+      final t0 = DateTime.now();
+      final generador = GeneradorPlantillaFacial(); // Singleton
 
-    // Enviar datos
-    final resultado = await enviarDatosRegistroUsuario(
-      cedula:               _cedulaController.text.trim(),
-      nombre:               _nombreController.text.trim(),
-      apellido:             _apellidoController.text.trim(),
-      correo:               _emailController.text.trim(),
-      genero:               _generoSeleccionado ?? 'SinGenero',
-      fechaNacimiento:      _fechaNacimiento ?? DateTime(2000,1,1),
-      contrasena:           _passwordController.text.trim(),
-      idRol:                _rolSeleccionado ?? 2,
-      imagen:               _imagenSeleccionada!,
-      carpetaDriveId:       UsuarioActual.carpetaDriveId!,
-      plantillaFacial:      plantilla,
-      plantillaFacialBase64: plantilla,
-    ).timeout(
-      const Duration(seconds: 20),
-      onTimeout: () => throw TimeoutException('Timeout registrando usuario'),
-    );
-
-    final bool exito = resultado.startsWith('ok');
-    if (context.mounted) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            exito ? '✅ Usuario registrado con éxito' : resultado
-          ),
-          duration: const Duration(milliseconds: 1500),
-        ),
+      // =============== Aquí: Generación de plantilla facial mejorada =================
+      final genResult = await generador
+          .generarDesdeImagen(_imagenSeleccionada!)
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout:
+                () => throw TimeoutException('Timeout generando plantilla'),
+          );
+      print(
+        '⏱️ Plantilla generada en: ${DateTime.now().difference(t0).inMilliseconds} ms',
       );
-      if (exito) {
-        await Future.delayed(const Duration(milliseconds: 1500));
-        if (context.mounted) {
-          // ignore: use_build_context_synchronously
-          context.go('/menu');
-        }
-        _limpiarFormulario();
-      }
-    }
-  } on TimeoutException catch (te) {
-    // ignore: use_build_context_synchronously
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('⌛ ${te.message}')));
-  } catch (e) {
-    // ignore: use_build_context_synchronously
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error inesperado: $e')));
-  } finally {
-    setState(() => _isLoading = false);
-  }
-}
 
+      final plantilla = genResult['plantilla'] as String?;
+      // 👇 Si falla, mostrar mensaje específico para usuario
+      if (plantilla == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              genResult['mensaje'] ??
+                  '❌ No se pudo generar la plantilla facial.\nIntenta tomar otra foto.',
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+      // ===============================================================================
+
+      // Enviar datos al backend
+      final resultado = await enviarDatosRegistroUsuario(
+        cedula: _cedulaController.text.trim(),
+        nombre: _nombreController.text.trim(),
+        apellido: _apellidoController.text.trim(),
+        correo: _emailController.text.trim(),
+        genero: _generoSeleccionado ?? 'SinGenero',
+        fechaNacimiento: _fechaNacimiento ?? DateTime(2000, 1, 1),
+        contrasena: _passwordController.text.trim(),
+        idRol: _rolSeleccionado ?? 2,
+        imagen: _imagenSeleccionada!,
+        carpetaDriveId: UsuarioActual.carpetaDriveId!,
+        plantillaFacial: plantilla,
+        plantillaFacialBase64: plantilla,
+      ).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw TimeoutException('Timeout registrando usuario'),
+      );
+
+      final bool exito = resultado.startsWith('ok');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(exito ? '✅ Usuario registrado con éxito' : resultado),
+            duration: const Duration(milliseconds: 1500),
+          ),
+        );
+        if (exito) {
+          await Future.delayed(const Duration(milliseconds: 1500));
+          if (context.mounted) {
+            context.go('/menu');
+          }
+          _limpiarFormulario();
+        }
+      }
+    } on TimeoutException catch (te) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('⌛ ${te.message}')));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('❌ Error inesperado: $e')));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -327,39 +348,37 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                   // 📸 Icono de cámara CON el parámetro de error
                   IconoCamaraRegistro(
                     onFotoCambiada: _manejarCambioFoto,
-                    mostrarError: _mostrarErrorFoto, // ← Pasar el estado de error
+                    mostrarError:
+                        _mostrarErrorFoto, // ← Pasar el estado de error
                   ),
                   const SizedBox(height: 30),
 
                   // Cédula
                   EstiloInputRegistro(
-                    etiqueta:          'Cédula',
-                    textoPlaceholder:  '0123456789',
-                    icono:             Icons.perm_identity,
-                    tipoCampo:         'cedula',
-                    controller:        _cedulaController,
-                    focusNode:         _cedulaFocus,
-                    errorText:         _erroresCampos['cedula'],
-                    inputFormatters:   [
-                      LengthLimitingTextInputFormatter(10),
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
+                    etiqueta: 'Cédula',
+                    textoPlaceholder: '0123456789',
+                    icono: Icons.perm_identity,
+                    tipoCampo: 'cedula',
+                    controller: _cedulaController,
+                    focusNode: _cedulaFocus,
+                    errorText: _erroresCampos['cedula'],
                     onEditingComplete: () {
                       _validarCampo('cedula');
                       FocusScope.of(context).requestFocus(_nombreFocus);
                     },
                   ),
+
                   const SizedBox(height: 10),
 
                   // Nombre
                   EstiloInputRegistro(
-                    etiqueta:          'Nombre',
-                    textoPlaceholder:  'Tanya',
-                    icono:             Icons.person,
-                    tipoCampo:         'nombre',
-                    controller:        _nombreController,
-                    focusNode:         _nombreFocus,
-                    errorText:         _erroresCampos['nombre'],
+                    etiqueta: 'Nombre',
+                    textoPlaceholder: 'Tanya',
+                    icono: Icons.person,
+                    tipoCampo: 'nombre',
+                    controller: _nombreController,
+                    focusNode: _nombreFocus,
+                    errorText: _erroresCampos['nombre'],
                     onEditingComplete: () {
                       _validarCampo('nombre');
                       FocusScope.of(context).requestFocus(_apellidoFocus);
@@ -369,13 +388,13 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
 
                   // Apellido
                   EstiloInputRegistro(
-                    etiqueta:          'Apellido',
-                    textoPlaceholder:  'Perez Andrade',
-                    icono:             Icons.person_outline,
-                    tipoCampo:         'apellido',
-                    controller:        _apellidoController,
-                    focusNode:         _apellidoFocus,
-                    errorText:         _erroresCampos['apellido'],
+                    etiqueta: 'Apellido',
+                    textoPlaceholder: 'Perez Andrade',
+                    icono: Icons.person_outline,
+                    tipoCampo: 'apellido',
+                    controller: _apellidoController,
+                    focusNode: _apellidoFocus,
+                    errorText: _erroresCampos['apellido'],
                     onEditingComplete: () {
                       _validarCampo('apellido');
                       FocusScope.of(context).requestFocus(_telefonoFocus);
@@ -385,14 +404,14 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
 
                   // Teléfono
                   EstiloInputRegistro(
-                    etiqueta:          'Teléfono',
-                    textoPlaceholder:  '+593... o 09...',
-                    icono:             Icons.phone,
-                    tipoCampo:         'telefono',
-                    controller:        _telefonoController,
-                    focusNode:         _telefonoFocus,
-                    errorText:         _erroresCampos['telefono'],
-                    inputFormatters:   [TelefonoInputFormatter()],
+                    etiqueta: 'Teléfono',
+                    textoPlaceholder: '+593... o 09...',
+                    icono: Icons.phone,
+                    tipoCampo: 'telefono',
+                    controller: _telefonoController,
+                    focusNode: _telefonoFocus,
+                    errorText: _erroresCampos['telefono'],
+                    inputFormatters: [TelefonoInputFormatter()],
                     onEditingComplete: () {
                       _validarCampo('telefono');
                       FocusScope.of(context).requestFocus(_emailFocus);
@@ -404,25 +423,29 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: GestureDetector(
-                      onTap: !isLoading
-                          ? () async {
-                              final now = DateTime.now();
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: _fechaNacimiento!,
-                                firstDate: DateTime(1900),
-                                lastDate: now,
-                              );
-                              if (picked != null) {
-                                setState(() => _fechaNacimiento = picked);
+                      onTap:
+                          !isLoading
+                              ? () async {
+                                final now = DateTime.now();
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _fechaNacimiento!,
+                                  firstDate: DateTime(1900),
+                                  lastDate: now,
+                                );
+                                if (picked != null) {
+                                  setState(() => _fechaNacimiento = picked);
+                                }
                               }
-                            }
-                          : null,
+                              : null,
                       child: InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Fecha de nacimiento',
                           labelStyle: TextStyle(color: Colors.white),
-                          prefixIcon: Icon(Icons.calendar_today, color: Colors.white),
+                          prefixIcon: Icon(
+                            Icons.calendar_today,
+                            color: Colors.white,
+                          ),
                           enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: Colors.white70),
                           ),
@@ -458,12 +481,19 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     iconEnabledColor: Colors.white,
                     style: const TextStyle(color: Colors.white),
                     items: const [
-                      DropdownMenuItem(value: 'Masculino', child: Text('Masculino')),
-                      DropdownMenuItem(value: 'Femenino', child: Text('Femenino')),
+                      DropdownMenuItem(
+                        value: 'Masculino',
+                        child: Text('Masculino'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Femenino',
+                        child: Text('Femenino'),
+                      ),
                     ],
-                    onChanged: isLoading
-                        ? null
-                        : (v) => setState(() => _generoSeleccionado = v),
+                    onChanged:
+                        isLoading
+                            ? null
+                            : (v) => setState(() => _generoSeleccionado = v),
                   ),
                   const SizedBox(height: 10),
 
@@ -484,45 +514,52 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     dropdownColor: const Color(0xFF0A2240),
                     iconEnabledColor: Colors.white,
                     style: const TextStyle(color: Colors.white),
-                    items: roles
-                        .where((r) => r.nombre != 'Visitante')
-                        .map((r) => DropdownMenuItem<int>(
-                              value: r.id,
-                              child: Text(r.nombre),
-                            ))
-                        .toList(),
-                    onChanged: isLoading
-                        ? null
-                        : (v) => setState(() => _rolSeleccionado = v),
+                    items:
+                        roles
+                            .where((r) => r.nombre != 'Visitante')
+                            .map(
+                              (r) => DropdownMenuItem<int>(
+                                value: r.id,
+                                child: Text(r.nombre),
+                              ),
+                            )
+                            .toList(),
+                    onChanged:
+                        isLoading
+                            ? null
+                            : (v) => setState(() => _rolSeleccionado = v),
                   ),
                   const SizedBox(height: 10),
 
                   // Correo electrónico
                   EstiloInputRegistro(
-                    etiqueta:          'Correo electrónico',
-                    textoPlaceholder:  'correo@ejemplo.com',
-                    icono:             Icons.email,
-                    tipoCampo:         'email',
-                    controller:        _emailController,
-                    focusNode:         _emailFocus,
-                    errorText:         _erroresCampos['email'],
+                    etiqueta: 'Correo electrónico',
+                    textoPlaceholder: 'correo@ejemplo.com',
+                    icono: Icons.email,
+                    tipoCampo: 'email',
+                    controller: _emailController,
+                    focusNode: _emailFocus,
+                    errorText: _erroresCampos['email'],
                     onEditingComplete: () => _validarCampo('email'),
                   ),
                   const SizedBox(height: 10),
 
                   // Contraseña
                   EstiloInputRegistro(
-                    etiqueta:            'Contraseña',
-                    textoPlaceholder:    '••••••••',
-                    icono:               Icons.lock,
-                    tipoCampo:           'password',
-                    controller:          _passwordController,
-                    focusNode:           _passwordFocus,
-                    errorText:           _erroresCampos['password'],
-                    esContrasena:        true,
-                    ocultarTexto:        _ocultarPassword,
-                    onToggleVisibilidad: () => setState(() => _ocultarPassword = !_ocultarPassword),
-                    onEditingComplete:   () => _validarCampo('password'),
+                    etiqueta: 'Contraseña',
+                    textoPlaceholder: '••••••••',
+                    icono: Icons.lock,
+                    tipoCampo: 'password',
+                    controller: _passwordController,
+                    focusNode: _passwordFocus,
+                    errorText: _erroresCampos['password'],
+                    esContrasena: true,
+                    ocultarTexto: _ocultarPassword,
+                    onToggleVisibilidad:
+                        () => setState(
+                          () => _ocultarPassword = !_ocultarPassword,
+                        ),
+                    onEditingComplete: () => _validarCampo('password'),
                   ),
 
                   const SizedBox(height: 30),
@@ -531,7 +568,10 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
                     isLoading: isLoading,
                   ),
                   const SizedBox(height: 20),
-                  const Text('©IstaSafe', style: TextStyle(color: Colors.white70)),
+                  const Text(
+                    '©IstaSafe',
+                    style: TextStyle(color: Colors.white70),
+                  ),
                 ],
               ),
             ),
@@ -557,10 +597,16 @@ class _RegistrarButton extends StatelessWidget {
           backgroundColor: onPressed != null ? Colors.blueAccent : Colors.grey,
           padding: const EdgeInsets.symmetric(vertical: 15),
         ),
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : const Text('Registrar',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        child:
+            isLoading
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text(
+                  'Registrar',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
       ),
     );
   }

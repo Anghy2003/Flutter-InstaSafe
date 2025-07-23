@@ -4,6 +4,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'router.dart';
+// Agrega la importación del generador
+import 'package:instasafe/models/generadorplantilla.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +15,9 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // 🔥 Inicialización del modelo facial SOLO UNA VEZ
+  await GeneradorPlantillaFacial().inicializarModelo();
 
   runApp(const MyApp());
 }

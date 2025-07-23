@@ -5,7 +5,7 @@ import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
 
 class VerificacionResultadoScreen extends StatefulWidget {
-  final Map<String, dynamic> datosUsuario;
+  final Map<String, dynamic> datosUsuario; // Recibe visitante o usuario
 
   const VerificacionResultadoScreen({
     Key? key,
@@ -23,7 +23,7 @@ class _VerificacionResultadoScreenState
   final TextEditingController _descripcionController = TextEditingController();
 
   bool _isChecking = true;
-  bool _esSalida = false;               // para controlar qué mostrar
+  bool _esSalida = false;
   String _ubicacionSeleccionada = 'Edificio Principal';
 
   final List<String> ubicaciones = [
@@ -34,6 +34,38 @@ class _VerificacionResultadoScreenState
     'Biblioteca',
   ];
 
+  // Método seguro para obtener el id del usuario/visitante
+  int? _obtenerIdUsuario(Map datos) {
+    if (datos.containsKey('visitante')) {
+      final visitante = datos['visitante'];
+      if (visitante is Map && visitante.containsKey('id')) {
+        return _parseId(visitante['id']);
+      }
+    }
+    if (datos.containsKey('id')) {
+      return _parseId(datos['id']);
+    }
+    if (datos.containsKey('id_usuario')) {
+      return _parseId(datos['id_usuario']);
+    }
+    return null;
+  }
+
+  int? _parseId(dynamic id) {
+    if (id == null) return null;
+    if (id is int) return id;
+    if (id is String) return int.tryParse(id);
+    return null;
+  }
+
+  // Método seguro para obtener el rol
+  String _obtenerRol(dynamic rol) {
+    if (rol == null) return 'Visitante';
+    if (rol is String) return rol;
+    if (rol is Map && rol['nombre'] != null) return rol['nombre'].toString();
+    return rol.toString();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -42,11 +74,11 @@ class _VerificacionResultadoScreenState
 
   Future<void> _checkPendingEvent() async {
     try {
-      final idUsuario = widget.datosUsuario['id'] as int;
+      final idUsuario = _obtenerIdUsuario(widget.datosUsuario);
+      if (idUsuario == null) return;
       final pendiente = await _eventoService.getEventoPendiente(idUsuario);
 
       if (pendiente != null) {
-        // Ya había ingreso hoy → modo Salida
         setState(() => _esSalida = true);
       }
     } catch (_) {
@@ -58,7 +90,13 @@ class _VerificacionResultadoScreenState
 
   Future<void> _accionEvento() async {
     try {
-      final idUsuario = widget.datosUsuario['id'] as int;
+      final idUsuario = _obtenerIdUsuario(widget.datosUsuario);
+      if (idUsuario == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo obtener el ID del usuario/visitante.')),
+        );
+        return;
+      }
       final resultado = await _eventoService.registrarEvento(
         idUsuario: idUsuario,
         idGuardia: UsuarioActual.id!,
@@ -77,7 +115,6 @@ class _VerificacionResultadoScreenState
       _showSnack('❌ $e', false);
     } finally {
       context.go('/menu');
-
     }
   }
 
@@ -160,10 +197,18 @@ class _VerificacionResultadoScreenState
       );
     }
 
-    final nombre = widget.datosUsuario['nombre'] ?? 'Desconocido';
-    final email = widget.datosUsuario['email'] ?? '';
-    final rol = widget.datosUsuario['rol'] ?? 'Sin rol';
-    final urlFoto = widget.datosUsuario['foto'] as String?;
+    // Extrae datos dependiendo de la estructura recibida
+    Map datos = widget.datosUsuario;
+    if (datos.containsKey('visitante')) {
+      datos = datos['visitante'] as Map;
+    }
+    final nombre = (datos['nombre'] ?? '') +
+        (datos['apellido'] != null ? ' ${datos['apellido']}' : '');
+    final correo = datos['correo'] ?? datos['email'] ?? '';
+    final rol = _obtenerRol(datos['rol']) ??
+        datos['nombreRol']?.toString() ??
+        'Visitante';
+    final urlFoto = datos['foto'] as String? ?? '';
 
     return DegradadoFondoScreen(
       child: Scaffold(
@@ -184,22 +229,21 @@ class _VerificacionResultadoScreenState
             children: [
               CircleAvatar(
                 radius: 50,
-                backgroundImage: urlFoto != null && urlFoto.isNotEmpty
+                backgroundImage: urlFoto.isNotEmpty
                     ? NetworkImage(urlFoto)
                     : null,
-                child: urlFoto == null || urlFoto.isEmpty
+                child: urlFoto.isEmpty
                     ? const Icon(Icons.person, size: 50, color: Colors.white)
                     : null,
               ),
               const SizedBox(height: 20),
-              _infoRow(Icons.person, 'Nombre:', nombre),
+              _infoRow(Icons.person, 'Nombre:', nombre.isEmpty ? 'Sin nombre' : nombre),
               const SizedBox(height: 8),
-              _infoRow(Icons.email, 'Email:', email),
+              _infoRow(Icons.email, 'Correo:', correo.isEmpty ? 'Sin correo' : correo),
               const SizedBox(height: 8),
               _infoRow(Icons.badge, 'Rol:', rol),
               const SizedBox(height: 20),
 
-              // Solo para Ingreso: lugar y descripción
               if (!_esSalida) ...[
                 DropdownButtonFormField<String>(
                   value: _ubicacionSeleccionada,
@@ -237,13 +281,16 @@ class _VerificacionResultadoScreenState
                 const SizedBox(height: 30),
               ],
 
-              // Botones siempre visibles
               _botonPrincipal(
                 label: _esSalida ? 'Confirmar Salida' : 'Registrar Ingreso',
                 onPressed: _accionEvento,
               ),
               const SizedBox(height: 15),
-              _botonSecundario(label: 'Cancelar', onPressed: () => Navigator.pop(context)),
+              // Cambiado: Navega directo al menú principal
+              _botonSecundario(
+                label: 'Cancelar',
+                onPressed: () => context.go('/menu'),
+              ),
               const Spacer(),
               Text('©IstaSafe', style: TextStyle(color: Colors.white.withOpacity(0.5))),
             ],

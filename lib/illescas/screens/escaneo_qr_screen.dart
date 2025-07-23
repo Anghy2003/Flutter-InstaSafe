@@ -129,7 +129,6 @@ class EscaneoQRScreen extends StatelessWidget {
   }
 }
 
-// 👇 TU FUNCIÓN ORIGINAL PARA USUARIOS (NO LA CAMBIES)
 Future<void> tomarFotoYVerificar(BuildContext context) async {
   File? fotoTomada;
 
@@ -152,25 +151,23 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
   // 🔥 ValueNotifier para mensaje dinámico
   final mensajeLoader = ValueNotifier<String>("Procesando rostro...");
 
-  // 💡 Mostramos loader ANTES de comenzar procesos pesados
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (_) => LoaderAnimado(mensajeNotifier: mensajeLoader),
   );
-
-  // Espera microtask para asegurar el loader aparece ANTES de procesar
-  await Future.microtask(() {});
+  await Future.microtask(() {}); // fuerza mostrar loader
 
   try {
-    // 1️⃣ Procesamiento facial
+    // ⚡️ 1. Procesamiento facial (¡modelo ya está inicializado en main!)
     mensajeLoader.value = "Procesando rostro...";
+
+    // Usa SIEMPRE el Singleton, NO vuelvas a inicializar aquí
     final generador = GeneradorPlantillaFacial();
-    await generador.inicializarModelo();
     final resultadoGeneracion = await generador.generarDesdeImagen(fotoTomada!);
     final plantillaBase64 = resultadoGeneracion['plantilla'];
 
-    // 2️⃣ Comparación local
+    // ⚡️ 2. Comparación local
     mensajeLoader.value = "Comparando rostro...";
     List<UsuarioLigero> usuarios = [];
     try {
@@ -182,6 +179,7 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
         usuarios = jsonList.map((e) => UsuarioLigero.fromJson(e)).toList();
       }
     } catch (_) {}
+
     PlantillaFacial? plantillaCapturada;
     if (plantillaBase64 != null) {
       plantillaCapturada = PlantillaFacial.fromBase64(plantillaBase64);
@@ -191,15 +189,17 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
         : null;
 
     if (resultadoLocal != null) {
+      // Si tienes lógica adicional aquí, puedes usarla
       print('⚠ Coincidencia local: ${resultadoLocal['usuario']?.cedula}');
     }
 
-    // 3️⃣ Subida a Cloudinary
+    // ⚡️ 3. Subida a Cloudinary (puedes hacerla en un Isolate si notas lag, pero generalmente aquí ya es rápido)
+    mensajeLoader.value = "Subiendo imagen a la nube...";
     final imagenReducida = await UtilImagen.reducirImagen(fotoTomada!);
     final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida);
 
-    // 4️⃣ Consulta en Face++
-    mensajeLoader.value = "Verificando rostro...";
+    // ⚡️ 4. Consulta en Face++ (esto depende de tu red)
+    mensajeLoader.value = "Verificando rostro en Face++...";
     final resultadoFacePlus =
         await FacePlusService.verificarFaceDesdeUrl(urlCloudinary ?? '');
 
@@ -264,3 +264,4 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
     }
   }
 }
+
