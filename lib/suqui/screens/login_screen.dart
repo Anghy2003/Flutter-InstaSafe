@@ -29,25 +29,29 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    final correo = _emailCtrl.text.trim();
-    final clave = _passCtrl.text;
-    if (correo.isEmpty || clave.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Debes completar correo y contraseña')));
-      return;
-    }
-
-    setState(() => _loading = true);
-    final ok = await UsuarioActual.iniciarSesion(correo, clave);
-    setState(() => _loading = false);
-
-    if (ok) {
-      context.go('/menu');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Correo o Contraseña incorrectos')));
-    }
+  final correo = _emailCtrl.text.trim();
+  final clave  = _passCtrl.text;
+  if (correo.isEmpty || clave.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes completar correo y contraseña')));
+    return;
   }
+
+  setState(() => _loading = true);
+  final ok = await UsuarioActual.iniciarSesion(correo, clave);
+  setState(() => _loading = false);
+
+  print('🔍 _handleLogin: iniciarSesion devolvió $ok');
+  if (ok) {
+    print('🚀 _handleLogin: navegando a /menu');
+    context.go('/menu');
+  } else {
+    print('❌ _handleLogin: credenciales inválidas');
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Correo o Contraseña incorrectos')));
+  }
+}
+
 
   void _showLoaderGoogle() => setState(() => _loadingGoogle = true);
   void _hideLoaderGoogle() => setState(() => _loadingGoogle = false);
