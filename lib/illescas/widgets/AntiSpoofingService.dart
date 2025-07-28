@@ -24,6 +24,7 @@ class AntiSpoofingService {
       final pixel = resized.getPixelSafe(x, y);
       return [
         pixel.rNormalized, // Red canal normalizado
+        
         pixel.gNormalized, // Green
         pixel.bNormalized, // Blue
       ];

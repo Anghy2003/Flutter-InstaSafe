@@ -11,7 +11,7 @@ class FacePlusService {
   /// 🔍 Verifica si el rostro ya está en el FaceSet (NO registra)
   static Future<Map<String, dynamic>?> verificarFaceDesdeUrl(String imageUrl) async {
     try {
-      log('🔍 Verificando rostro en Face++');
+      log('🔍 Iniciando verificación en Face++ con URL: $imageUrl');
       final uri = Uri.parse('https://api-us.faceplusplus.com/facepp/v3/search');
 
       final response = await http.post(
@@ -25,12 +25,17 @@ class FacePlusService {
         },
       ).timeout(_defaultTimeout);
 
+      log('📨 Respuesta HTTP verificación: ${response.statusCode}');
+      log('📄 Body verificación: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['results'] != null && data['results'].isNotEmpty) {
           final result = data['results'][0];
           final confidence = result['confidence'];
           final userId = result['user_id'];
+
+          log('📌 Resultado más cercano: user_id=$userId, confianza=$confidence');
 
           if (confidence >= 75.0) {
             log('✅ Coincidencia válida (confianza: $confidence)');
@@ -43,31 +48,30 @@ class FacePlusService {
             log('❌ Confianza insuficiente ($confidence)');
           }
         } else {
-          log('⚠️ No se encontraron coincidencias');
+          log('⚠️ No se encontraron coincidencias en el FaceSet');
         }
       } else {
-        log('❌ Error HTTP al verificar: ${response.body}');
+        log('❌ Error HTTP al verificar rostro: ${response.body}');
       }
     } catch (e, stack) {
-      log('❌ Excepción en verificación: $e', stackTrace: stack);
+      log('❌ Excepción al verificar rostro: $e', stackTrace: stack);
     }
     return null;
   }
 
   /// 📝 Registra un rostro en el FaceSet usando una URL y un userId
-  static Future<bool> registrarFaceDesdeUrl(String imageUrl, String userId) async {
+  static Future<Map<String, dynamic>?> registrarFaceDesdeUrl(String imageUrl, String userId) async {
     try {
-      log('📝 Iniciando registro de rostro para: $userId');
-      // 1. Verificar si ya existe con algún usuario
+      log('📝 Iniciando registro de rostro con userId: $userId');
+      log('🔁 Verificando si ya existe un rostro similar...');
       final yaRegistrado = await verificarFaceDesdeUrl(imageUrl);
       if (yaRegistrado != null) {
-        final coincidenciaId = yaRegistrado['user_id'] ?? 'otro usuario';
-        log('🚫 El rostro se parece al de otra persona ya registrada: $coincidenciaId');
-        return false;
+        final coincidenciaId = yaRegistrado['user_id'] ?? 'desconocido';
+        log('🚫 Ya existe un rostro similar en FaceSet con userId: $coincidenciaId');
+        return null;
       }
 
-      // 2. Detección del rostro
-      log('📸 Enviando imagen a Face++ para detección...');
+      log('📸 Enviando imagen para detección facial...');
       final detectResponse = await http.post(
         Uri.parse('https://api-us.faceplusplus.com/facepp/v3/detect'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -78,21 +82,23 @@ class FacePlusService {
         },
       ).timeout(_defaultTimeout);
 
-      log('📬 Respuesta de detect: ${detectResponse.statusCode}');
+      log('📨 Respuesta HTTP detección: ${detectResponse.statusCode}');
+      log('📄 Body detección: ${detectResponse.body}');
+
       if (detectResponse.statusCode != 200) {
         log('❌ Error detectando rostro: ${detectResponse.body}');
-        return false;
+        return null;
       }
 
       final detectData = jsonDecode(detectResponse.body);
       if (detectData['faces'] == null || detectData['faces'].isEmpty) {
         log('❌ No se detectó ningún rostro en la imagen');
-        return false;
+        return null;
       }
+
       final faceToken = detectData['faces'][0]['face_token'];
       log('🆔 face_token detectado: $faceToken');
 
-      // 3. Intentar agregar al FaceSet (con reintentos eficientes)
       const maxIntentos = 4;
       const delayEntreIntentos = Duration(seconds: 2);
       int intento = 0;
@@ -108,35 +114,52 @@ class FacePlusService {
       while (true) {
         intento++;
         log('🔁 Intento $intento para agregar face_token al FaceSet...');
+
         addResponse = await http.post(addUri,
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: addBody).timeout(_defaultTimeout);
 
-        if (addResponse.statusCode == 200) break;
+        log('📨 Respuesta HTTP addface: ${addResponse.statusCode}');
+        log('📄 Body addface: ${addResponse.body}');
+
+        if (addResponse.statusCode == 200) {
+          log('✅ face_token agregado exitosamente al FaceSet');
+          break;
+        }
 
         if (addResponse.statusCode == 403 &&
             addResponse.body.contains('CONCURRENCY_LIMIT_EXCEEDED') &&
             intento < maxIntentos) {
-          log('⏳ Concurrency limit excedido. Esperando 2 segundos antes de reintentar...');
+          log('⏳ Concurrency limit excedido. Reintentando en 2 segundos...');
           await Future.delayed(delayEntreIntentos);
         } else {
-          log('❌ Error al agregar a FaceSet: ${addResponse.body}');
-          return false;
+          log('❌ Error al agregar face_token: ${addResponse.body}');
+          return null;
         }
       }
 
-      // 4. Asignar user_id
-      log('🔗 Asignando user_id al rostro...');
-      return await asignarUserId(faceToken, userId);
+      log('🔗 Asignando user_id al face_token...');
+      final asignado = await asignarUserId(faceToken, userId);
+      if (!asignado) {
+        log('❌ Falló la asignación del user_id');
+        return null;
+      }
+
+      log('🎉 Registro facial completado con éxito');
+      return {
+        'face_token': faceToken,
+        'user_id': userId,
+      };
     } catch (e, stack) {
       log('❌ Excepción en registrarFaceDesdeUrl: $e', stackTrace: stack);
-      return false;
+      return null;
     }
   }
 
   /// 🔗 Asigna un `user_id` (cédula) a un `face_token`
   static Future<bool> asignarUserId(String faceToken, String userId) async {
     try {
+      log('📌 Asignando user_id="$userId" al face_token="$faceToken"');
       final response = await http.post(
         Uri.parse('https://api-us.faceplusplus.com/facepp/v3/face/setuserid'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -148,11 +171,14 @@ class FacePlusService {
         },
       ).timeout(_defaultTimeout);
 
+      log('📨 Respuesta HTTP setuserid: ${response.statusCode}');
+      log('📄 Body setuserid: ${response.body}');
+
       if (response.statusCode == 200) {
         log('✅ user_id asignado correctamente');
         return true;
       } else {
-        log('❌ Error asignando user_id: ${response.body}');
+        log('❌ Error al asignar user_id: ${response.body}');
         return false;
       }
     } catch (e, stack) {
@@ -164,6 +190,7 @@ class FacePlusService {
   /// 🧽 Elimina un face_token del FaceSet
   static Future<bool> eliminarFaceToken(String faceToken) async {
     try {
+      log('🧽 Solicitando eliminación de face_token="$faceToken" del FaceSet');
       final response = await http.post(
         Uri.parse('https://api-us.faceplusplus.com/facepp/v3/faceset/removeface'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -174,6 +201,9 @@ class FacePlusService {
           'face_tokens': faceToken,
         },
       ).timeout(_defaultTimeout);
+
+      log('📨 Respuesta HTTP removeface: ${response.statusCode}');
+      log('📄 Body removeface: ${response.body}');
 
       if (response.statusCode == 200) {
         log('🗑️ face_token eliminado correctamente');
