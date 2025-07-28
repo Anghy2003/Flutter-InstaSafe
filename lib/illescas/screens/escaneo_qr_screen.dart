@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:instasafe/berrezueta/screens/loader_animado_screen.dart';
 import 'package:instasafe/berrezueta/screens/registro_visitante_screen.dart';
+import 'package:instasafe/berrezueta/widgets/comparar_visitante/tomar_foto_visitante.dart';
 import 'package:instasafe/illescas/screens/CamaraGuiadaScreen%20.dart';
 import 'package:instasafe/illescas/screens/QrScannerScreen.dart';
 import 'package:instasafe/illescas/screens/faceplus_service.dart';
 import 'package:instasafe/illescas/screens/usuarioLigero.dart';
+import 'package:instasafe/illescas/widgets/AntiSpoofingService.dart';
 import 'package:instasafe/models/plantillafacial.dart';
 import 'package:instasafe/models/generadorplantilla.dart';
 import 'package:instasafe/illescas/screens/comparadorfacial_ligero.dart';
@@ -48,7 +50,11 @@ class EscaneoQRScreen extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 60),
-              Icon(Icons.qr_code_2_rounded, size: ancho * 0.65, color: Colors.white),
+              Icon(
+                Icons.qr_code_2_rounded,
+                size: ancho * 0.65,
+                color: Colors.white,
+              ),
               const SizedBox(height: 40),
               _botonOpcion(
                 context,
@@ -56,7 +62,10 @@ class EscaneoQRScreen extends StatelessWidget {
                 titulo: "ESCANEAR QR",
                 subtitulo: "Escanea un código QR",
                 onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const QrScannerScreen()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+                  );
                 },
               ),
               const SizedBox(height: 40),
@@ -78,13 +87,16 @@ class EscaneoQRScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const RegistroVisitanteScreen(),
+                      builder: (_) => const TomarFotoVisitanteScreen(),
                     ),
                   );
                 },
               ),
               const Spacer(),
-              Text('©IstaSafe', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+              Text(
+                '©IstaSafe',
+                style: TextStyle(color: Colors.white.withOpacity(0.6)),
+              ),
               const SizedBox(height: 10),
             ],
           ),
@@ -93,11 +105,13 @@ class EscaneoQRScreen extends StatelessWidget {
     );
   }
 
-  Widget _botonOpcion(BuildContext context,
-      {required IconData icon,
-      required String titulo,
-      required String subtitulo,
-      required VoidCallback onPressed}) {
+  Widget _botonOpcion(
+    BuildContext context, {
+    required IconData icon,
+    required String titulo,
+    required String subtitulo,
+    required VoidCallback onPressed,
+  }) {
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(15),
@@ -115,11 +129,21 @@ class EscaneoQRScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(titulo,
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(subtitulo,
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14)),
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  subtitulo,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
+                ),
               ],
             ),
           ],
@@ -135,15 +159,17 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
   await Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (_) => CamaraGuiadaScreen(onFotoCapturada: (foto) => fotoTomada = foto),
+      builder:
+          (_) =>
+              CamaraGuiadaScreen(onFotoCapturada: (foto) => fotoTomada = foto),
     ),
   );
 
   if (fotoTomada == null) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se tomó ninguna foto.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No se tomó ninguna foto.')));
     }
     return;
   }
@@ -159,7 +185,7 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
   await Future.microtask(() {}); // fuerza mostrar loader
 
   try {
-    // ⚡️ 1. Procesamiento facial (¡modelo ya está inicializado en main!)
+    // ⚡ 1. Procesamiento facial (¡modelo ya está inicializado en main!)
     mensajeLoader.value = "Procesando rostro...";
 
     // Usa SIEMPRE el Singleton, NO vuelvas a inicializar aquí
@@ -167,12 +193,14 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
     final resultadoGeneracion = await generador.generarDesdeImagen(fotoTomada!);
     final plantillaBase64 = resultadoGeneracion['plantilla'];
 
-    // ⚡️ 2. Comparación local
+    // ⚡ 2. Comparación local
     mensajeLoader.value = "Comparando rostro...";
     List<UsuarioLigero> usuarios = [];
     try {
       final response = await http.get(
-        Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas'),
+        Uri.parse(
+          'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas',
+        ),
       );
       if (response.statusCode == 200) {
         final jsonList = jsonDecode(response.body) as List<dynamic>;
@@ -184,24 +212,26 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
     if (plantillaBase64 != null) {
       plantillaCapturada = PlantillaFacial.fromBase64(plantillaBase64);
     }
-    final resultadoLocal = plantillaCapturada != null
-        ? ComparadorFacialLigero.comparar(plantillaCapturada, usuarios)
-        : null;
+    final resultadoLocal =
+        plantillaCapturada != null
+            ? ComparadorFacialLigero.comparar(plantillaCapturada, usuarios)
+            : null;
 
     if (resultadoLocal != null) {
       // Si tienes lógica adicional aquí, puedes usarla
       print('⚠ Coincidencia local: ${resultadoLocal['usuario']?.cedula}');
     }
 
-    // ⚡️ 3. Subida a Cloudinary (puedes hacerla en un Isolate si notas lag, pero generalmente aquí ya es rápido)
+    // ⚡ 3. Subida a Cloudinary (puedes hacerla en un Isolate si notas lag, pero generalmente aquí ya es rápido)
     mensajeLoader.value = "Subiendo imagen a la nube...";
     final imagenReducida = await UtilImagen.reducirImagen(fotoTomada!);
     final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida);
 
-    // ⚡️ 4. Consulta en Face++ (esto depende de tu red)
+    // ⚡ 4. Consulta en Face++ (esto depende de tu red)
     mensajeLoader.value = "Verificando rostro en Face++...";
-    final resultadoFacePlus =
-        await FacePlusService.verificarFaceDesdeUrl(urlCloudinary ?? '');
+    final resultadoFacePlus = await FacePlusService.verificarFaceDesdeUrl(
+      urlCloudinary ?? '',
+    );
 
     if (context.mounted) Navigator.of(context).pop(); // Cierra loader
     if (!context.mounted) return;
@@ -212,8 +242,10 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
       if (cedulaDetectada == null || cedulaDetectada.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content:
-                  Text('❌ El rostro no tiene una cédula asociada en Face++.')),
+            content: Text(
+              '❌ El rostro no tiene una cédula asociada en Face++.',
+            ),
+          ),
         );
         return;
       }
@@ -221,7 +253,9 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
       // 5️⃣ Descargar datos del usuario
       mensajeLoader.value = "Descargando datos del usuario...";
       final response = await http.get(
-        Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/cedula/$cedulaDetectada'),
+        Uri.parse(
+          'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/cedula/$cedulaDetectada',
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -239,29 +273,30 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                VerificacionResultadoScreen(datosUsuario: datosUsuario),
+            builder:
+                (_) => VerificacionResultadoScreen(datosUsuario: datosUsuario),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('❌ Usuario no encontrado en la base de datos')),
+            content: Text('❌ Usuario no encontrado en la base de datos'),
+          ),
         );
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('😕 No se encontró coincidencia con Face++')),
+          content: Text('😕 No se encontró coincidencia con Face++'),
+        ),
       );
     }
   } catch (e) {
     if (context.mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error inesperado: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('❌ Error inesperado: $e')));
     }
   }
 }
-
