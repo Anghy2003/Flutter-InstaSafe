@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:http/http.dart' as http;
 import 'package:instasafe/berrezueta/models/auditoria_models.dart';
 import 'package:instasafe/berrezueta/services/auditoria_service.dart';
@@ -12,7 +11,6 @@ import 'package:instasafe/illescas/screens/comparadorfacial_ligero.dart';
 import 'package:instasafe/berrezueta/widgets/registro/subir_imagen_drive.dart';
 import 'package:instasafe/utils/UtilImagen.dart';
 import 'package:instasafe/berrezueta/models/usuario_actual.dart';
-
 Future<Map<String, dynamic>> enviarDatosRegistroVisitante({
   required String nombre,
   required String apellido,
@@ -27,16 +25,15 @@ Future<Map<String, dynamic>> enviarDatosRegistroVisitante({
   try {
     print('🔐 Iniciando envío de datos para visitante $nombre $apellido');
 
-    // 1️⃣ Decodificar la plantilla Base64
     final plantillaNueva = PlantillaFacial.fromBase64(plantillaFacialBase64);
     print('✅ Plantilla facial decodificada');
 
-    // 2️⃣ Comparación local (opcional)
+    // Comparación local (opcional)
     try {
       print('🔎 Verificando coincidencia local…');
       final respPlant = await http
-        .get(Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas'))
-        .timeout(const Duration(seconds: 10));
+          .get(Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas'))
+          .timeout(const Duration(seconds: 10));
       if (respPlant.statusCode == 200) {
         final jsonList = jsonDecode(respPlant.body) as List<dynamic>;
         final usuarios = jsonList.map((e) => UsuarioLigero.fromJson(e)).toList();
@@ -53,21 +50,25 @@ Future<Map<String, dynamic>> enviarDatosRegistroVisitante({
       print('⚠️ Error en comparación local: $e');
     }
 
-    // 3️⃣ Redimensionar + subir a Cloudinary
+    // Subir a Cloudinary
     print('🖼️ Redimensionando imagen…');
     final imagenReducida = await UtilImagen.reducirImagen(imagen);
     print('📤 Subiendo a Cloudinary…');
     final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida)
         .timeout(const Duration(seconds: 20));
-    if (urlCloudinary == null) return {'ok': false, 'error': '❌ Error al subir a Cloudinary'};
+    if (urlCloudinary == null) {
+      return {'ok': false, 'error': '❌ Error al subir a Cloudinary'};
+    }
 
-    // 4️⃣ Subir imagen original a Drive
-    print('📤 Subiendo a Drive…');
+    // Subir a Drive
+    print('📤 Subiendo imagen original a Drive…');
     final fotoUrl = await subirImagenADrive(imagen, carpetaDriveId)
         .timeout(const Duration(seconds: 20));
-    if (fotoUrl == null) return {'ok': false, 'error': '❌ Error al subir a Drive'};
+    if (fotoUrl == null) {
+      return {'ok': false, 'error': '❌ Error al subir imagen a Drive'};
+    }
 
-    // 5️⃣ Crear visitante en backend
+    // Crear visitante en backend
     print('🧾 Creando visitante en backend…');
     final respCreate = await http.post(
       Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/visitantes'),
@@ -78,32 +79,37 @@ Future<Map<String, dynamic>> enviarDatosRegistroVisitante({
         'id_rol': idRol.toString(),
         'foto': fotoUrl,
         'plantillaFacial': plantillaFacialBase64,
+        'token': '', // ← se actualizará después
       },
     ).timeout(const Duration(seconds: 15));
 
     if (respCreate.statusCode != 200 && respCreate.statusCode != 201) {
+      print('❌ Error backend: ${respCreate.body}');
       return {'ok': false, 'error': '❌ Error backend: ${respCreate.body}'};
     }
+
     final created = jsonDecode(respCreate.body) as Map<String, dynamic>;
     visitanteId = (created['id'] as num).toInt();
     print('✅ Visitante creado con ID $visitanteId');
 
-    // 6️⃣ Registrar rostro en Face++
-    print('😶 Registrando rostro en Face++…');
-    final exitoFace = await FacePlusService
+    // Registrar rostro en Face++
+    print('😶 Registrando rostro en Face++...');
+    final resultadoFace = await FacePlusService
         .registrarFaceDesdeUrl(urlCloudinary, visitanteId.toString())
         .timeout(const Duration(seconds: 15));
-    if (!exitoFace) {
-      // Si falla, borramos el registro recién creado
-      print('❌ Face++ falló, eliminando ID $visitanteId …');
+
+    if (resultadoFace == null || resultadoFace['face_token'] == null) {
+      print('❌ No se pudo registrar rostro en Face++');
       await http.delete(
         Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$visitanteId'),
       );
-      return {'ok': false, 'error': '❌ No se pudo registrar rostro en Face++'};
+      return {'ok': false, 'error': '❌ Registro facial fallido'};
     }
-    print('✅ Rostro registrado en Face++');
 
-    // 7️⃣ Registrar auditoría
+    final faceToken = resultadoFace['face_token'];
+    print('✅ Rostro registrado en Face++ con token: $faceToken');
+
+    // Auditoría
     if (UsuarioActual.id != null) {
       final evento = "Se registró visitante: $nombre $apellido";
       final auditoria = Auditoria(
@@ -115,25 +121,22 @@ Future<Map<String, dynamic>> enviarDatosRegistroVisitante({
       print('📝 Auditoría registrada');
     }
 
-    // --- DEVUELVE EL VISITANTE CREADO + OK ---
     return {
       'ok': true,
-      'visitante': created, // ← contiene los datos del visitante registrado
+      'visitante': created,
     };
   } on TimeoutException catch (te) {
-    print('⌛ Timeout: ${te.message}');
     if (visitanteId > 0) {
-      await http.delete(
-        Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$visitanteId'),
-      );
+      await http.delete(Uri.parse(
+        'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$visitanteId',
+      ));
     }
     return {'ok': false, 'error': '⌛ Timeout: ${te.message}'};
   } catch (e) {
-    print('❌ Excepción: $e');
     if (visitanteId > 0) {
-      await http.delete(
-        Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$visitanteId'),
-      );
+      await http.delete(Uri.parse(
+        'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$visitanteId',
+      ));
     }
     return {'ok': false, 'error': '❌ Error inesperado: $e'};
   }

@@ -18,30 +18,33 @@ class EventoService {
   }
 
   /// Registra ingreso o salida. El backend decide según si hay evento pendiente.
+
   Future<Map<String, dynamic>> registrarEvento({
-    required int idUsuario,
-    required int idGuardia,
-    String titulo = 'ACCESO',
-    String descripcion = '',
-    String lugar = '',
-  }) async {
-    final body = {
-      'titulo': titulo,
-      'descripcion': descripcion,
-      'lugar': lugar,
-      'id_usuario': {'id': idUsuario},
-      'id_guardia': {'id': idGuardia},
-      'fechaingreso': null,
-      'fechasalida': null,
-    };
-    final resp = await http.post(
-      Uri.parse(_baseUrl),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
-    if (resp.statusCode == 200 || resp.statusCode == 201) {
-      return jsonDecode(resp.body) as Map<String, dynamic>;
-    }
-    throw Exception('Error al registrar evento: ${resp.body}');
+  required int idUsuario,
+  required int idGuardia,
+  String titulo = 'ACCESO',
+  String descripcion = '',
+  int? idLugar,
+}) async {
+  final body = {
+    'titulo': titulo,
+    'descripcion': descripcion,
+    'id_usuario': {'id': idUsuario},
+    'id_guardia': {'id': idGuardia},
+    if (idLugar != null) 'id_lugar': {'id': idLugar}, 
+    'fechasalida': null,
+  };
+
+  final resp = await http.post(
+    Uri.parse(_baseUrl),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode(body),
+  );
+
+  if (resp.statusCode == 200 || resp.statusCode == 201) {
+    return jsonDecode(resp.body) as Map<String, dynamic>;
   }
+  throw Exception('Error al registrar evento: ${resp.body}');
+}
+
 }

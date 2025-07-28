@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:instasafe/berrezueta/screens/loader_animado_screen.dart';
@@ -23,7 +24,6 @@ class _TomarFotoVisitanteScreenState extends State<TomarFotoVisitanteScreen> {
   @override
   void initState() {
     super.initState();
-    // Abre la cámara automáticamente al entrar
     Future.delayed(Duration.zero, () => _tomarYVerificarVisitante(context));
   }
 
@@ -55,6 +55,7 @@ class _TomarFotoVisitanteScreenState extends State<TomarFotoVisitanteScreen> {
 Future<void> _tomarYVerificarVisitante(BuildContext context) async {
   File? fotoTomada;
 
+  print('📷 Iniciando flujo de toma de foto...');
   await Navigator.push(
     context,
     MaterialPageRoute(
@@ -64,17 +65,16 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
   );
 
   if (fotoTomada == null) {
+    print('❌ No se tomó ninguna foto');
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se tomó ninguna foto.')),
       );
-      // Regresa a la pantalla anterior (EscaneoQRScreen)
       Navigator.of(context).pop();
     }
     return;
   }
 
-  // Loader animado para mensajes
   final mensajeLoader = ValueNotifier<String>("Procesando rostro...");
 
   showDialog(
@@ -85,55 +85,64 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
   await Future.microtask(() {});
 
   try {
-    // 1️⃣ Procesamiento facial y generación de plantilla
+    print('🧠 Cargando modelo y generando plantilla facial...');
     mensajeLoader.value = "Procesando rostro...";
     final generador = GeneradorPlantillaFacial();
     await generador.inicializarModelo();
     final resultadoGeneracion = await generador.generarDesdeImagen(fotoTomada!);
     final plantillaBase64 = resultadoGeneracion['plantilla'];
 
-    // 2️⃣ Comparación local SOLO con visitantes
+    print('🧬 Plantilla generada: ${plantillaBase64 != null ? "✅ OK" : "❌ NULL"}');
+
     mensajeLoader.value = "Comparando rostro con visitantes...";
+    print('🔍 Consultando plantillas de visitantes del backend...');
     List<UsuarioLigero> visitantes = [];
     try {
       final response = await http.get(
         Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/plantillas-visitantes'),
       );
+      print('🌐 Status visitantes: ${response.statusCode}');
       if (response.statusCode == 200) {
         final jsonList = jsonDecode(response.body) as List<dynamic>;
         visitantes = jsonList.map((e) => UsuarioLigero.fromJson(e)).toList();
+        print('👥 Visitantes obtenidos: ${visitantes.length}');
       }
-    } catch (_) {}
+    } catch (e) {
+      print('❌ Error al obtener visitantes: $e');
+    }
+
     PlantillaFacial? plantillaCapturada;
     if (plantillaBase64 != null) {
       plantillaCapturada = PlantillaFacial.fromBase64(plantillaBase64);
     }
-    final resultadoLocal =
-        plantillaCapturada != null
-            ? ComparadorFacialLigero.comparar(plantillaCapturada, visitantes)
-            : null;
+
+    final resultadoLocal = plantillaCapturada != null
+        ? ComparadorFacialLigero.comparar(plantillaCapturada, visitantes)
+        : null;
 
     if (resultadoLocal != null) {
       print('⚠ Coincidencia local (visitante): ${resultadoLocal['usuario']?.cedula}');
+    } else {
+      print('😕 Sin coincidencia local');
     }
 
-    // 3️⃣ Subida a Cloudinary
+    print('🌐 Subiendo imagen a Cloudinary...');
     final imagenReducida = await UtilImagen.reducirImagen(fotoTomada!);
     final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida);
+    print('📸 URL Cloudinary: $urlCloudinary');
 
-    // 4️⃣ Consulta en Face++ SOLO visitantes
     mensajeLoader.value = "Verificando rostro en Face++ (visitantes)...";
-    final resultadoFacePlus = await FacePlusService.verificarFaceDesdeUrl(
-      urlCloudinary ?? '',
-    );
+    final resultadoFacePlus = await FacePlusService.verificarFaceDesdeUrl(urlCloudinary ?? '');
 
-    if (context.mounted) Navigator.of(context).pop(); // Cierra el loader
+    if (context.mounted) Navigator.of(context).pop();
     if (!context.mounted) return;
 
     if (resultadoFacePlus != null) {
       final idVisitanteDetectado = resultadoFacePlus['user_id']?.toString();
+      print('🔍 Visitante detectado en Face++: $idVisitanteDetectado');
 
       if (idVisitanteDetectado == null || idVisitanteDetectado.isEmpty) {
+        print('❌ Coincidencia sin user_id válido');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('❌ El rostro no tiene visitante asociado en Face++.'),
@@ -143,13 +152,14 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
         return;
       }
 
-      // 5️⃣ Descargar datos del visitante
       final response = await http.get(
         Uri.parse('https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/$idVisitanteDetectado'),
       );
+      print('🌐 Respuesta datos visitante: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final visitante = jsonDecode(response.body);
+        print('📋 Datos visitante: $visitante');
 
         final datosVisitante = {
           'id': visitante['id'],
@@ -167,9 +177,10 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
                 VerificacionResultadoScreen(datosUsuario: datosVisitante),
           ),
         );
-        // Al cerrar la pantalla de resultado, regresar automáticamente a EscaneoQRScreen
+
         if (context.mounted) Navigator.of(context).pop();
       } else {
+        print('❌ Visitante no encontrado en base de datos');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('❌ Visitante no encontrado en la base de datos'),
@@ -178,6 +189,7 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
         Navigator.of(context).pop();
       }
     } else {
+      print('❌ Sin coincidencia en Face++');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('😕 No se encontró coincidencia con Face++'),
@@ -186,6 +198,7 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
       Navigator.of(context).pop();
     }
   } catch (e) {
+    print('❌ Excepción durante verificación: $e');
     if (context.mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

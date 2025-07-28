@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:instasafe/berrezueta/screens/loader_animado_screen.dart';
-import 'package:instasafe/berrezueta/widgets/comparar_visitante/tomar_foto_visitante.dart'; // <<--- Importa tu nueva pantalla
+import 'package:instasafe/berrezueta/screens/registro_visitante_screen.dart';
 import 'package:instasafe/illescas/screens/CamaraGuiadaScreen%20.dart';
 import 'package:instasafe/illescas/screens/QrScannerScreen.dart';
 import 'package:instasafe/illescas/screens/faceplus_service.dart';
@@ -78,7 +78,7 @@ class EscaneoQRScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const TomarFotoVisitanteScreen(),
+                      builder: (_) => const RegistroVisitanteScreen(),
                     ),
                   );
                 },

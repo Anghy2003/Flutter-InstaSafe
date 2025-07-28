@@ -5,7 +5,7 @@ class Evento {
   final int id;
   final String titulo;
   final String descripcion;
-  final String lugar;
+  final int lugar;
   final DateTime fechaIngreso;
   final DateTime fechaSalida;
 

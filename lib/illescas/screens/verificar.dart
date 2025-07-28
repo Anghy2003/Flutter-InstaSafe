@@ -3,14 +3,14 @@ import 'package:go_router/go_router.dart';
 import 'package:instasafe/berrezueta/services/evento_service.dart';
 import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
+import 'package:instasafe/models/lugar.dart';
+import 'package:instasafe/services/lugarService.dart';
 
 class VerificacionResultadoScreen extends StatefulWidget {
-  final Map<String, dynamic> datosUsuario; // Recibe visitante o usuario
+  final Map<String, dynamic> datosUsuario;
 
-  const VerificacionResultadoScreen({
-    Key? key,
-    required this.datosUsuario,
-  }) : super(key: key);
+  const VerificacionResultadoScreen({Key? key, required this.datosUsuario})
+    : super(key: key);
 
   @override
   _VerificacionResultadoScreenState createState() =>
@@ -20,21 +20,15 @@ class VerificacionResultadoScreen extends StatefulWidget {
 class _VerificacionResultadoScreenState
     extends State<VerificacionResultadoScreen> {
   final EventoService _eventoService = EventoService();
+  final LugarService _lugarService = LugarService();
   final TextEditingController _descripcionController = TextEditingController();
 
   bool _isChecking = true;
   bool _esSalida = false;
-  String _ubicacionSeleccionada = 'Edificio Principal';
 
-  final List<String> ubicaciones = [
-    'Edificio Principal',
-    'Secretaría',
-    'Edificio Lateral',
-    'Auditorio',
-    'Biblioteca',
-  ];
+  List<Lugar> _listaLugares = [];
+  Lugar? _lugarSeleccionado;
 
-  // Método seguro para obtener el id del usuario/visitante
   int? _obtenerIdUsuario(Map datos) {
     if (datos.containsKey('visitante')) {
       final visitante = datos['visitante'];
@@ -42,12 +36,8 @@ class _VerificacionResultadoScreenState
         return _parseId(visitante['id']);
       }
     }
-    if (datos.containsKey('id')) {
-      return _parseId(datos['id']);
-    }
-    if (datos.containsKey('id_usuario')) {
-      return _parseId(datos['id_usuario']);
-    }
+    if (datos.containsKey('id')) return _parseId(datos['id']);
+    if (datos.containsKey('id_usuario')) return _parseId(datos['id_usuario']);
     return null;
   }
 
@@ -58,7 +48,6 @@ class _VerificacionResultadoScreenState
     return null;
   }
 
-  // Método seguro para obtener el rol
   String _obtenerRol(dynamic rol) {
     if (rol == null) return 'Visitante';
     if (rol is String) return rol;
@@ -69,7 +58,22 @@ class _VerificacionResultadoScreenState
   @override
   void initState() {
     super.initState();
+    _cargarLugares();
     _checkPendingEvent();
+  }
+
+  Future<void> _cargarLugares() async {
+    try {
+      final lugares = await _lugarService.obtenerLugares();
+      if (lugares.isNotEmpty) {
+        setState(() {
+          _listaLugares = lugares;
+          _lugarSeleccionado = lugares.first;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error al cargar lugares: $e');
+    }
   }
 
   Future<void> _checkPendingEvent() async {
@@ -77,12 +81,9 @@ class _VerificacionResultadoScreenState
       final idUsuario = _obtenerIdUsuario(widget.datosUsuario);
       if (idUsuario == null) return;
       final pendiente = await _eventoService.getEventoPendiente(idUsuario);
-
       if (pendiente != null) {
         setState(() => _esSalida = true);
       }
-    } catch (_) {
-      // Manejo leve de error
     } finally {
       setState(() => _isChecking = false);
     }
@@ -93,7 +94,9 @@ class _VerificacionResultadoScreenState
       final idUsuario = _obtenerIdUsuario(widget.datosUsuario);
       if (idUsuario == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo obtener el ID del usuario/visitante.')),
+          const SnackBar(
+            content: Text('No se pudo obtener el ID del usuario/visitante.'),
+          ),
         );
         return;
       }
@@ -101,7 +104,7 @@ class _VerificacionResultadoScreenState
         idUsuario: idUsuario,
         idGuardia: UsuarioActual.id!,
         descripcion: _esSalida ? '' : _descripcionController.text,
-        lugar: _esSalida ? '' : _ubicacionSeleccionada,
+        idLugar: _esSalida ? null : _lugarSeleccionado?.id,
       );
 
       final esSalidaConfirmada = resultado['fechasalida'] != null;
@@ -137,75 +140,80 @@ class _VerificacionResultadoScreenState
   }
 
   Widget _infoRow(IconData icon, String label, String value) => Row(
-        children: [
-          Icon(icon, color: Colors.white70, size: 18),
-          const SizedBox(width: 10),
-          Text('$label ', style: const TextStyle(color: Colors.white70)),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w500),
-              overflow: TextOverflow.ellipsis,
-            ),
+    children: [
+      Icon(icon, color: Colors.white70, size: 18),
+      const SizedBox(width: 10),
+      Text('$label ', style: const TextStyle(color: Colors.white70)),
+      Expanded(
+        child: Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      );
-
-  Widget _botonPrincipal({required String label, required VoidCallback onPressed}) =>
-      SizedBox(
-        width: double.infinity,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            backgroundColor: const Color(0xFF0A2240),
-            side: const BorderSide(color: Colors.blueAccent),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          child: Text(label,
-              style: const TextStyle(color: Colors.white, fontSize: 16)),
+          overflow: TextOverflow.ellipsis,
         ),
-      );
+      ),
+    ],
+  );
 
-  Widget _botonSecundario(
-          {required String label, required VoidCallback onPressed}) =>
-      SizedBox(
-        width: double.infinity,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.blueAccent),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          child: Text(label,
-              style: const TextStyle(color: Colors.white, fontSize: 16)),
-        ),
-      );
+  Widget _botonPrincipal({
+    required String label,
+    required VoidCallback onPressed,
+  }) => SizedBox(
+    width: double.infinity,
+    child: OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: const Color(0xFF0A2240),
+        side: const BorderSide(color: Colors.blueAccent),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+      ),
+    ),
+  );
+
+  Widget _botonSecundario({
+    required String label,
+    required VoidCallback onPressed,
+  }) => SizedBox(
+    width: double.infinity,
+    child: OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: Colors.blueAccent),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     if (_isChecking) {
       return const Scaffold(
         backgroundColor: Colors.transparent,
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
-    // Extrae datos dependiendo de la estructura recibida
     Map datos = widget.datosUsuario;
-    if (datos.containsKey('visitante')) {
-      datos = datos['visitante'] as Map;
-    }
-    final nombre = (datos['nombre'] ?? '') +
+    if (datos.containsKey('visitante')) datos = datos['visitante'] as Map;
+
+    final nombre =
+        (datos['nombre'] ?? '') +
         (datos['apellido'] != null ? ' ${datos['apellido']}' : '');
     final correo = datos['correo'] ?? datos['email'] ?? '';
-    final rol = _obtenerRol(datos['rol']) ??
+    final rol =
+        _obtenerRol(datos['rol']) ??
         datos['nombreRol']?.toString() ??
         'Visitante';
     final urlFoto = datos['foto'] as String? ?? '';
@@ -223,78 +231,144 @@ class _VerificacionResultadoScreenState
           ),
           centerTitle: true,
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 50,
-                backgroundImage: urlFoto.isNotEmpty
-                    ? NetworkImage(urlFoto)
-                    : null,
-                child: urlFoto.isEmpty
-                    ? const Icon(Icons.person, size: 50, color: Colors.white)
-                    : null,
-              ),
-              const SizedBox(height: 20),
-              _infoRow(Icons.person, 'Nombre:', nombre.isEmpty ? 'Sin nombre' : nombre),
-              const SizedBox(height: 8),
-              _infoRow(Icons.email, 'Correo:', correo.isEmpty ? 'Sin correo' : correo),
-              const SizedBox(height: 8),
-              _infoRow(Icons.badge, 'Rol:', rol),
-              const SizedBox(height: 20),
-
-              if (!_esSalida) ...[
-                DropdownButtonFormField<String>(
-                  value: _ubicacionSeleccionada,
-                  dropdownColor: const Color(0xFF0A1D37),
-                  decoration: const InputDecoration(
-                    labelText: 'Ubicación',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white30),
-                    ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Card(
+                        color: Colors.white10,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 24,
+                            horizontal: 16,
+                          ),
+                          child: Column(
+                            children: [
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundImage:
+                                    urlFoto.isNotEmpty
+                                        ? NetworkImage(urlFoto)
+                                        : null,
+                                child:
+                                    urlFoto.isEmpty
+                                        ? const Icon(
+                                          Icons.person,
+                                          size: 50,
+                                          color: Colors.white,
+                                        )
+                                        : null,
+                              ),
+                              const SizedBox(height: 20),
+                              _infoRow(
+                                Icons.person,
+                                'Nombre:',
+                                nombre.isEmpty ? 'Sin nombre' : nombre,
+                              ),
+                              const SizedBox(height: 8),
+                              _infoRow(
+                                Icons.email,
+                                'Correo:',
+                                correo.isEmpty ? 'Sin correo' : correo,
+                              ),
+                              const SizedBox(height: 8),
+                              _infoRow(Icons.badge, 'Rol:', rol),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (!_esSalida && _listaLugares.isNotEmpty) ...[
+                        Text(
+                          'Ubicación',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<Lugar>(
+                          value: _lugarSeleccionado,
+                          dropdownColor: const Color(0xFF0A1D37),
+                          decoration: const InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white10,
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white30),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.arrow_drop_down,
+                            color: Colors.white,
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                          items:
+                              _listaLugares.map((lugar) {
+                                return DropdownMenuItem(
+                                  value: lugar,
+                                  child: Text(lugar.nombre),
+                                );
+                              }).toList(),
+                          onChanged: (Lugar? nuevo) {
+                            setState(() => _lugarSeleccionado = nuevo);
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _descripcionController,
+                          style: const TextStyle(color: Colors.white),
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Descripción (opcional)',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            filled: true,
+                            fillColor: Colors.white10,
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white30),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                      ],
+                      _botonPrincipal(
+                        label:
+                            _esSalida
+                                ? 'Confirmar Salida'
+                                : 'Registrar Ingreso',
+                        onPressed: _accionEvento,
+                      ),
+                      const SizedBox(height: 15),
+                      _botonSecundario(
+                        label: 'Cancelar',
+                        onPressed: () => context.go('/menu'),
+                      ),
+                      const SizedBox(height: 30),
+                      Center(
+                        child: Text(
+                          '© IstaSafe',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                  style: const TextStyle(color: Colors.white),
-                  items: ubicaciones
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _ubicacionSeleccionada = v!),
                 ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _descripcionController,
-                  style: const TextStyle(color: Colors.white),
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Descripción (opcional)',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white30),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.blueAccent),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-              ],
-
-              _botonPrincipal(
-                label: _esSalida ? 'Confirmar Salida' : 'Registrar Ingreso',
-                onPressed: _accionEvento,
               ),
-              const SizedBox(height: 15),
-              // Cambiado: Navega directo al menú principal
-              _botonSecundario(
-                label: 'Cancelar',
-                onPressed: () => context.go('/menu'),
-              ),
-              const Spacer(),
-              Text('©IstaSafe', style: TextStyle(color: Colors.white.withOpacity(0.5))),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
