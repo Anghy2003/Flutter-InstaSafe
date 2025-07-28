@@ -5,6 +5,7 @@ class Usuario {
   final String apellido;
   final String correo;
   final String? foto;
+  final String? fotoGoogle;
   final String genero;
   final int idresponsable;
   final DateTime fechanacimiento;
@@ -19,6 +20,7 @@ class Usuario {
     required this.apellido,
     required this.correo,
     this.foto,
+    this.fotoGoogle,
     required this.genero,
     required this.idresponsable,
     required this.fechanacimiento,

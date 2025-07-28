@@ -13,6 +13,7 @@ class UsuarioActual {
   static String? correo;
 
   // 🧑‍💻 Atributos individuales extraídos del modelo de usuario
+  static String? fotoGoogle; // Foto de Google
   static String? cedula;
   static String? nombre;
   static String? apellido;
@@ -32,6 +33,7 @@ class UsuarioActual {
     cedula = null;
     nombre = null;
     apellido = null;
+    fotoGoogle = null;
     genero = null;
     idresponsable = null;
     fechanacimiento = null;
@@ -42,70 +44,123 @@ class UsuarioActual {
 
   // 🔎 Consulta el usuario en Spring por correo y llena todos los campos estáticos
   static Future<bool> cargarDesdeCorreo(String correoBuscado) async {
-    if (correoBuscado.isEmpty) return false;
+  if (correoBuscado.isEmpty) return false;
 
-    try {
-      final response = await http.get(
-        Uri.parse(
-          'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/correo/$correoBuscado',
-          
-        ),
-        headers: {'Content-Type': 'application/json'},
-      );
+  // 1️⃣ Codifica el correo para la URL
+  final encodedCorreo = Uri.encodeComponent(correoBuscado);
+  final uri = Uri.parse(
+    'https://spring-instasafe-441403171241.us-central1.run.app'
+    '/api/usuarios/correo/$encodedCorreo'
+  );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+  print('🔍 Haciendo GET a: $uri');
+  try {
+    // 2️⃣ Lanza la petición y loguea resultado
+    final response = await http.get(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    print('⚙️ Código de GET: ${response.statusCode}');
+    print('⚙️ Body de GET : ${response.body}');
 
-        // 🎯 Asignación de atributos individuales
-        id = data['id'];
-        correo = data['correo'];
-        cedula = data['cedula'];
-        nombre = data['nombre'];
-        apellido = data['apellido'];
-        genero = data['genero'];
-        idresponsable = data['idresponsable'];
-        fechanacimiento = DateTime.tryParse(data['fechanacimiento'] ?? '');
-        contrasena = data['contrasena'];
-        idRol =
-            (data['id_rol'] is Map)
-                ? data['id_rol']['id'] ?? 0
-                : data['id_rol'] ?? 0;
-        plantillaFacial = data['plantillaFacial'];
-
-        print('UsuarioActual.id: ${UsuarioActual.id}'); // ← ¿Por ejemplo 10?
-        print(
-          'UsuarioActual.idRol: ${UsuarioActual.idRol}',
-        ); 
-
-        return true;
-      } else {
-        print('⚠ Usuario no encontrado. Código: ${response.statusCode}');
-        return false;
-      }
-    } catch (e) {
-      print('❌ Error al consultar usuario: $e');
+    if (response.statusCode != 200) {
+      // Aquí verás 404 o cualquier otro error
       return false;
     }
+
+    // 3️⃣ Si es 200, parsea y asigna los campos
+    final data = json.decode(response.body);
+    id               = data['id'];
+    correo           = data['correo'];
+    cedula           = data['cedula'];
+    nombre           = data['nombre'];
+    apellido         = data['apellido'];
+    
+    genero           = data['genero'];
+    idresponsable    = data['idresponsable'];
+    fechanacimiento  = DateTime.tryParse(data['fechanacimiento'] ?? '');
+    contrasena       = data['contrasena'];    // si tu endpoint la incluye
+    idRol            = (data['id_rol'] is Map)
+                       ? data['id_rol']['id']
+                       : data['id_rol'];
+    plantillaFacial  = data['plantillaFacial'];
+
+    return true;
+  } catch (e) {
+    print('❌ Error al consultar usuario: $e');
+    return false;
   }
+}
+
 
 //diego foto del google y el Qr
-static Future<bool> iniciarSesion(String correoBuscado, String clave) async {
-  // 1) prepara el plugin SIN cerrar sesión
-  final gs = GoogleSignIn(
-    scopes: ['email', 'profile', 'https://www.googleapis.com/auth/drive.file'],
-  );
-  String? fotoGoogle;
+static Future<bool> iniciarSesion(String correo, String clave) async {
+  // 1⃣ — Validar credenciales
+  final loginUri = Uri.parse(
+    'https://spring-instasafe-441403171241.us-central1.run.app/api/login'
+  ).replace(queryParameters: {
+    'correo': correo,
+    'contrasena': clave,
+  });
+  print('🔍 [LOGIN] POST a: $loginUri');
+
   try {
-    // 2) intenta una sesión silente
-    final cuenta = await gs.signInSilently();
-    if (cuenta != null && cuenta.email == correoBuscado) {
-      fotoGoogle = cuenta.photoUrl;
+    final loginResp = await http.post(loginUri);
+    print('⚙️ [LOGIN] Código: ${loginResp.statusCode}');
+    print('⚙️ [LOGIN] Body  : ${loginResp.body}');
+    if (loginResp.statusCode != 200) {
+      print('❌ Credenciales inválidas');
+      return false;
     }
+
+    // 2⃣ — Traer TODO el usuario
+    final correoEnc = Uri.encodeComponent(correo);
+    final getUri = Uri.parse(
+      'https://spring-instasafe-441403171241.us-central1.run.app'
+      '/api/usuarios/correo/$correoEnc'
+    );
+    print('🔍 [GET USER] GET a: $getUri');
+
+    final getResp = await http.get(
+      getUri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    print('⚙️ [GET USER] Código: ${getResp.statusCode}');
+    print('⚙️ [GET USER] Body  : ${getResp.body}');
+    if (getResp.statusCode != 200) {
+      print('❌ No se encontró usuario por correo');
+      return false;
+    }
+
+    // 3⃣ — Parseo y asignación de TODOS los campos en UsuarioActual
+    final data = json.decode(getResp.body);
+    id               = data['id'];
+    correo           = data['correo'];
+    cedula           = data['cedula'];
+    nombre           = data['nombre'];
+    apellido         = data['apellido'];
+    // ← asignamos aquí la URL de "foto" al atributo fotoGoogle
+    fotoGoogle       = data['fotoGoogle'] as String?;    
+    genero           = data['genero'];
+    idresponsable    = data['idresponsable'];
+    fechanacimiento  = DateTime.tryParse(data['fechanacimiento'] ?? '');
+    contrasena       = data['contrasena'];
+    idRol            = (data['id_rol'] is Map)
+                       ? data['id_rol']['id']
+                       : data['id_rol'];
+    plantillaFacial  = data['plantillaFacial'];
+
+    print('✅ iniciarSesion completado: '
+          'id=$id, nombre=$nombre $apellido, fotoGoogle=$fotoGoogle');
+    return true;
+
   } catch (e) {
-    print('⚠️ No pude obtener foto de Google silente: $e');
+    print('❌ Error en iniciarSesion: $e');
+    return false;
   }
-  return true;
 }
+
+
 
 
 static Future<String?> generarQrToken() async {

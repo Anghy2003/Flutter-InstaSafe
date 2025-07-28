@@ -48,15 +48,18 @@ class PerfilScreen extends StatelessWidget {
             children: [
               // Avatar
               const SizedBox(height: 24),
-              CircleAvatar(
-                radius: ancho * 0.18,
-                backgroundImage:
-                    (UsuarioActual.fotoUrl != null &&
-                            UsuarioActual.fotoUrl!.isNotEmpty)
-                        ? NetworkImage(UsuarioActual.fotoUrl!)
-                        : const AssetImage('assets/avatar_placeholder.png')
-                            as ImageProvider,
-              ),
+             CircleAvatar(
+  radius: ancho * 0.18,
+  backgroundImage: (UsuarioActual.fotoGoogle != null &&
+                   UsuarioActual.fotoGoogle!.isNotEmpty)
+      ? NetworkImage(UsuarioActual.fotoGoogle!)
+      : (UsuarioActual.fotoUrl != null &&
+         UsuarioActual.fotoUrl!.isNotEmpty)
+          ? NetworkImage(UsuarioActual.fotoUrl!)
+          : const AssetImage('assets/avatar_placeholder.png')
+              as ImageProvider,
+),
+
               const SizedBox(height: 16),
 
               // Nombre

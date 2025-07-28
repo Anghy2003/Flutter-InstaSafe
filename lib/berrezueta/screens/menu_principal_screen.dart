@@ -33,42 +33,24 @@ class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
   }
 
   Widget _buildAvatar(double diameter) {
-    final fotoUrl = UsuarioActual.fotoUrl;
-    if (fotoUrl == null) {
-      return CircleAvatar(
-        radius: diameter / 2,
-        backgroundImage:
-            const AssetImage('assets/image/avatar_placeholder.png'),
-      );
+    final placeholder = const AssetImage('assets/image/avatar_placeholder.png')
+        as ImageProvider;
+    ImageProvider avatarImage;
+
+    if (UsuarioActual.fotoGoogle != null &&
+        UsuarioActual.fotoGoogle!.isNotEmpty) {
+      avatarImage = NetworkImage(UsuarioActual.fotoGoogle!);
+    } else if (UsuarioActual.fotoUrl != null &&
+        UsuarioActual.fotoUrl!.isNotEmpty) {
+      avatarImage = NetworkImage(UsuarioActual.fotoUrl!);
+    } else {
+      avatarImage = placeholder;
     }
-    return ClipOval(
-      child: Container(
-        width: diameter,
-        height: diameter,
-        color: Colors.white, 
-        child: Image.network(
-          fotoUrl,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const Center(
-              child: CircularProgressIndicator(
-                color: Colors.blueAccent,
-                strokeWidth: 2.5,
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return const Center(
-              child: Icon(
-                Icons.error_outline,
-                color: Colors.redAccent,
-                size: 40,
-              ),
-            );
-          },
-        ),
-      ),
+
+    return CircleAvatar(
+      radius: diameter / 2,
+      backgroundImage: avatarImage,
+      backgroundColor: Colors.white,
     );
   }
 
@@ -91,7 +73,7 @@ class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
 
     final nombreUsuario = UsuarioActual.nombre ?? 'Usuario';
 
-    //tarjetas según el rol
+    // tarjetas según el rol
     final List<TarjetaBotonMenuPrincipal> tarjetas = [];
     if ([1, 2, 5].contains(rolId)) {
       tarjetas.add(
@@ -102,7 +84,7 @@ class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
         ),
       );
     }
-    if ([1, 2, 3, 5, 6,4].contains(rolId)) {
+    if ([1, 2, 3, 5, 6, 4].contains(rolId)) {
       tarjetas.addAll([
         TarjetaBotonMenuPrincipal(
           icono: Icons.person,
@@ -116,7 +98,7 @@ class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
         ),
       ]);
     }
-    if ([1,  5].contains(rolId)) {
+    if ([1, 5].contains(rolId)) {
       tarjetas.add(
         TarjetaBotonMenuPrincipal(
           icono: Icons.person_add_alt,
@@ -134,7 +116,7 @@ class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
         ),
       );
     }
-    
+
     tarjetas.add(
       TarjetaBotonMenuPrincipal(
         icono: Icons.logout,
