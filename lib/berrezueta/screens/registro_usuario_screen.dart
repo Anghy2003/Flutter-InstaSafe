@@ -70,7 +70,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
   int? _rolSeleccionado;
   bool _ocultarPassword = true;
   bool _isLoading = false;
-  bool _mostrarErrorFoto = false; // Nueva variable para controlar error de foto
+  bool _mostrarErrorFoto = false; 
 
   List<Rol> roles = [];
 
@@ -154,14 +154,13 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
       _validarCampo(campo);
     }
 
-    // Verificar si falta la foto
     bool faltaFoto = _imagenSeleccionada == null;
 
     setState(() {
-      _mostrarErrorFoto = faltaFoto; // Actualizar el estado del error de foto
+      _mostrarErrorFoto = faltaFoto;
     });
 
-    // Si hay errores o falta foto
+
     if (_erroresCampos.values.any((e) => e != null) || faltaFoto) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -207,10 +206,10 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
       if (esValida) {
         _imagenSeleccionada = archivo;
         _mostrarErrorFoto =
-            false; // Quitar el error cuando se selecciona una foto válida
+            false;
       } else {
         _imagenSeleccionada = null;
-        // No cambiar _mostrarErrorFoto aquí, solo cuando se valide el formulario
+        
       }
     });
   }
@@ -244,7 +243,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
       final t0 = DateTime.now();
       final generador = GeneradorPlantillaFacial(); // Singleton
 
-      // =============== Aquí: Generación de plantilla facial mejorada =================
+
       final genResult = await generador
           .generarDesdeImagen(_imagenSeleccionada!)
           .timeout(
@@ -257,7 +256,7 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
       );
 
       final plantilla = genResult['plantilla'] as String?;
-      // 👇 Si falla, mostrar mensaje específico para usuario
+      
       if (plantilla == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -345,11 +344,10 @@ class _RegistroUsuarioScreenState extends State<RegistroUsuarioScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // 📸 Icono de cámara CON el parámetro de error
                   IconoCamaraRegistro(
                     onFotoCambiada: _manejarCambioFoto,
                     mostrarError:
-                        _mostrarErrorFoto, // ← Pasar el estado de error
+                        _mostrarErrorFoto, 
                   ),
                   const SizedBox(height: 30),
 
