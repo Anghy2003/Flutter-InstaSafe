@@ -4,7 +4,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'router.dart';
-// Agrega la importación del generador
 import 'package:instasafe/models/generadorplantilla.dart';
 
 void main() async {
@@ -16,7 +15,6 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  //  Inicialización del modelo facial SOLO UNA VEZ
   await GeneradorPlantillaFacial().inicializarModelo();
 
   runApp(const MyApp());
@@ -45,7 +43,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.detached) {
-      // Cierra sesion de Google al cerrar la app
       await GoogleSignIn().signOut();
       UsuarioActual.limpiar();
     }

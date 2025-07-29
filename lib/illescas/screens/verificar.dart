@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:instasafe/berrezueta/services/auditoria_ingreso_salida.dart';
 import 'package:instasafe/berrezueta/services/evento_service.dart';
 import 'package:instasafe/berrezueta/models/usuario_actual.dart';
 import 'package:instasafe/berrezueta/widgets/degradado_fondo_screen.dart';
@@ -90,36 +91,57 @@ class _VerificacionResultadoScreenState
   }
 
   Future<void> _accionEvento() async {
-    try {
-      final idUsuario = _obtenerIdUsuario(widget.datosUsuario);
-      if (idUsuario == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo obtener el ID del usuario/visitante.'),
-          ),
-        );
-        return;
-      }
-      final resultado = await _eventoService.registrarEvento(
-        idUsuario: idUsuario,
-        idGuardia: UsuarioActual.id!,
-        descripcion: _esSalida ? '' : _descripcionController.text,
-        idLugar: _esSalida ? null : _lugarSeleccionado?.id,
+  try {
+    final idUsuario = _obtenerIdUsuario(widget.datosUsuario);
+    if (idUsuario == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo obtener el ID del usuario/visitante.'),
+        ),
       );
-
-      final esSalidaConfirmada = resultado['fechasalida'] != null;
-      _showSnack(
-        esSalidaConfirmada
-            ? '✅ Salida registrada correctamente'
-            : '✅ Ingreso registrado correctamente',
-        esSalidaConfirmada,
-      );
-    } catch (e) {
-      _showSnack('❌ $e', false);
-    } finally {
-      context.go('/menu');
+      return;
     }
+    final resultado = await _eventoService.registrarEvento(
+      idUsuario: idUsuario,
+      idGuardia: UsuarioActual.id!,
+      descripcion: _esSalida ? '' : _descripcionController.text,
+      idLugar: _esSalida ? null : _lugarSeleccionado?.id,
+    );
+
+    // Auditoría (obtén los datos reales)
+    final cedulaGuardia = UsuarioActual.cedula ?? '';
+    final nombreGuardia = UsuarioActual.nombre ?? '';
+    final usuarioData = widget.datosUsuario.containsKey('visitante')
+        ? widget.datosUsuario['visitante']
+        : widget.datosUsuario;
+
+    final cedulaUsuario = usuarioData['cedula'] ?? '';
+    final nombreUsuario = usuarioData['nombre'] ?? '';
+    final apellidoUsuario = usuarioData['apellido'] ?? '';
+
+    await registrarAuditoriaIngresoSalida(
+      cedulaGuardia: cedulaGuardia,
+      nombreGuardia: nombreGuardia,
+      cedulaUsuario: cedulaUsuario,
+      nombreUsuario: nombreUsuario,
+      apellidoUsuario: apellidoUsuario,
+      idGuardia: UsuarioActual.id!,
+      esSalida: _esSalida,
+    );
+
+    final esSalidaConfirmada = resultado['fechasalida'] != null;
+    _showSnack(
+      esSalidaConfirmada
+          ? '✅ Salida registrada correctamente'
+          : '✅ Ingreso registrado correctamente',
+      esSalidaConfirmada,
+    );
+  } catch (e) {
+    _showSnack('❌ $e', false);
+  } finally {
+    context.go('/menu');
   }
+}
 
   void _showSnack(String msg, bool esSalida) {
     final color = esSalida ? Colors.orange : Colors.green;

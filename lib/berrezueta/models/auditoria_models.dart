@@ -3,6 +3,8 @@ enum EventoAuditoria {
   usuarioRegistrado,
   actualizacionDatos,
   usuarioEliminado,
+  ingresoUsuario,
+  salidaUsuario
 }
 
 extension EventoAuditoriaExtension on EventoAuditoria {
@@ -12,6 +14,8 @@ extension EventoAuditoriaExtension on EventoAuditoria {
       case EventoAuditoria.usuarioRegistrado:   return 'Usuario registrado';
       case EventoAuditoria.actualizacionDatos:  return 'Actualización de datos';
       case EventoAuditoria.usuarioEliminado:    return 'Usuario eliminado';
+      case EventoAuditoria.ingresoUsuario:    return 'Ingreso de usuario';
+      case EventoAuditoria.salidaUsuario:    return 'Salida de usuario';
     }
   }
 }

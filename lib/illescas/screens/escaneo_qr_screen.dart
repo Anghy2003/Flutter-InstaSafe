@@ -289,7 +289,7 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
     if (context.mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuario no tiene rol asignado3')),
+        const SnackBar(content: Text('Usuario no tiene rol asignado')),
       );
     }
   }
