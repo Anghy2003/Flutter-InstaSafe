@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:instasafe/berrezueta/screens/loader_animado_screen.dart';
@@ -44,7 +43,7 @@ class _TomarFotoVisitanteScreenState extends State<TomarFotoVisitanteScreen> {
       ),
       body: const Center(
         child: Text(
-          "Abriendo cámara...",
+          "Obteniendo información...",
           style: TextStyle(color: Colors.white, fontSize: 20),
         ),
       ),
@@ -82,7 +81,7 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
     barrierDismissible: false,
     builder: (_) => LoaderAnimado(mensajeNotifier: mensajeLoader),
   );
-  await Future.microtask(() {});
+  await Future.microtask(() {}); // permite que se muestre el diálogo antes de continuar
 
   try {
     print('🧠 Cargando modelo y generando plantilla facial...');
@@ -131,7 +130,7 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
     final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida);
     print('📸 URL Cloudinary: $urlCloudinary');
 
-    mensajeLoader.value = "Verificando rostro en Face++ (visitantes)...";
+    mensajeLoader.value = "Verificando rostro...";
     final resultadoFacePlus = await FacePlusService.verificarFaceDesdeUrl(urlCloudinary ?? '');
 
     if (context.mounted) Navigator.of(context).pop();
@@ -157,34 +156,40 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
       );
       print('🌐 Respuesta datos visitante: ${response.statusCode}');
 
-      if (response.statusCode == 200) {
-        final visitante = jsonDecode(response.body);
-        print('📋 Datos visitante: $visitante');
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        try {
+          final visitante = jsonDecode(response.body);
+          print('📋 Datos visitante: $visitante');
 
-        final datosVisitante = {
-          'id': visitante['id'],
-          'nombre': '${visitante['nombre']} ${visitante['apellido']}',
-          'email': visitante['correo'] ?? '',
-          'rol': 'Visitante',
-          'foto': visitante['foto'],
-          'cedula': visitante['cedula'] ?? '',
-        };
+          final datosVisitante = {
+            'id': visitante['id'],
+            'nombre': '${visitante['nombre']} ${visitante['apellido']}',
+            'email': visitante['correo'] ?? '',
+            'rol': 'Visitante',
+            'foto': visitante['foto'],
+            'cedula': visitante['cedula'] ?? '',
+          };
 
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                VerificacionResultadoScreen(datosUsuario: datosVisitante),
-          ),
-        );
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  VerificacionResultadoScreen(datosUsuario: datosVisitante),
+            ),
+          );
 
-        if (context.mounted) Navigator.of(context).pop();
+          if (context.mounted) Navigator.of(context).pop();
+        } catch (e) {
+          print('❌ Error al parsear JSON: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Usuario no tiene rol de visitante')),
+          );
+          Navigator.of(context).pop();
+        }
       } else {
-        print('❌ Visitante no encontrado en base de datos');
+        print('❌ Visitante no encontrado o sin datos');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ Visitante no encontrado en la base de datos'),
-          ),
+          const SnackBar(content: Text('Usuario no tiene rol de visitante')),
         );
         Navigator.of(context).pop();
       }
@@ -202,9 +207,10 @@ Future<void> _tomarYVerificarVisitante(BuildContext context) async {
     if (context.mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error inesperado: $e')),
+        const SnackBar(content: Text('Usuario no tiene rol de visitante')),
       );
       Navigator.of(context).pop();
     }
   }
 }
+

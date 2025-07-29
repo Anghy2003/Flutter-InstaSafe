@@ -73,7 +73,7 @@ class _MenuPrincipalScreenState extends State<MenuPrincipalScreen> {
 
     final nombreUsuario = UsuarioActual.nombre ?? 'Usuario';
 
-    // tarjetas según el rol
+
     final List<TarjetaBotonMenuPrincipal> tarjetas = [];
     if ([1, 2, 5].contains(rolId)) {
       tarjetas.add(

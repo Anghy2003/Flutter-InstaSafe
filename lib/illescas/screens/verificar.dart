@@ -222,7 +222,7 @@ class _VerificacionResultadoScreenState
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          backgroundColor: const Color.fromARGB(0, 0, 0, 0),
           elevation: 0,
           iconTheme: const IconThemeData(color: Colors.white),
           title: Text(
@@ -242,7 +242,10 @@ class _VerificacionResultadoScreenState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Card(
-                        color: Colors.white10,
+                        color:
+                            Colors
+                                .transparent, // ← fondo completamente transparente
+                        elevation: 0, // ← sin sombra si quieres que no resalte
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -286,6 +289,7 @@ class _VerificacionResultadoScreenState
                           ),
                         ),
                       ),
+
                       const SizedBox(height: 24),
                       if (!_esSalida && _listaLugares.isNotEmpty) ...[
                         Text(

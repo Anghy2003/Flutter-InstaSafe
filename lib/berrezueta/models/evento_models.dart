@@ -23,11 +23,9 @@ class Evento {
   });
 
   factory Evento.fromJson(Map<String, dynamic> json) {
-    // 🚩 Cambios aquí: usa .toLocal() para asegurarte que la fecha sea la de Ecuador/dispositivo
     final fechaIngresoStr = json['fechaingreso'] ?? '';
     final fechaSalidaStr = json['fechasalida'] ?? '';
 
-    // Parse seguro con toLocal
     final fechaIngreso = fechaIngresoStr.isNotEmpty
         ? DateTime.parse(fechaIngresoStr).toLocal()
         : DateTime(2000);

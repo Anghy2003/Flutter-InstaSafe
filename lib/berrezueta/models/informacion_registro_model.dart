@@ -27,7 +27,6 @@ class InformacionRegistroModel {
     required this.descripcion,
   });
 
-  /// Factory constructor para crear una instancia desde datos de API
   factory InformacionRegistroModel.fromApiData(Map<String, dynamic> evento) {
     return InformacionRegistroModel(
       nombre: evento['id_usuario']?['nombre'] ?? '',
@@ -44,19 +43,14 @@ class InformacionRegistroModel {
     );
   }
 
-  /// Obtiene el nombre completo del usuario
   String get nombreCompleto => '$nombre $apellido';
 
-  /// Obtiene el nombre completo del guardia
   String get guardiaNombreCompleto => '$guardiaNombre $guardiaApellido';
 
-  /// Formatea la fecha de entrada
   String get horaEntradaFormateada => _formatearFecha(horaEntrada);
 
-  /// Formatea la fecha de salida
   String get horaSalidaFormateada => _formatearFecha(horaSalida);
 
-  /// Formatea una fecha desde string a formato dd/MM/yyyy HH:mm
   String _formatearFecha(String fechaRaw) {
     try {
       final fecha = DateTime.parse(fechaRaw).toLocal();
@@ -66,6 +60,5 @@ class InformacionRegistroModel {
     }
   }
 
-  /// Verifica si la foto es una URL o un asset local
   bool get esFotoUrl => fotoPerfil.startsWith('http');
 }

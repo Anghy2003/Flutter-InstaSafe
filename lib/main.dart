@@ -16,7 +16,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // 🔥 Inicialización del modelo facial SOLO UNA VEZ
+  //  Inicialización del modelo facial SOLO UNA VEZ
   await GeneradorPlantillaFacial().inicializarModelo();
 
   runApp(const MyApp());

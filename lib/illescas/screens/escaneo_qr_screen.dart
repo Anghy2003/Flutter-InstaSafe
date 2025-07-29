@@ -3,13 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:instasafe/berrezueta/screens/loader_animado_screen.dart';
-import 'package:instasafe/berrezueta/screens/registro_visitante_screen.dart';
 import 'package:instasafe/berrezueta/widgets/comparar_visitante/tomar_foto_visitante.dart';
 import 'package:instasafe/illescas/screens/CamaraGuiadaScreen%20.dart';
 import 'package:instasafe/illescas/screens/QrScannerScreen.dart';
 import 'package:instasafe/illescas/screens/faceplus_service.dart';
 import 'package:instasafe/illescas/screens/usuarioLigero.dart';
-import 'package:instasafe/illescas/widgets/AntiSpoofingService.dart';
 import 'package:instasafe/models/plantillafacial.dart';
 import 'package:instasafe/models/generadorplantilla.dart';
 import 'package:instasafe/illescas/screens/comparadorfacial_ligero.dart';
@@ -77,7 +75,6 @@ class EscaneoQRScreen extends StatelessWidget {
                 onPressed: () => tomarFotoYVerificar(context),
               ),
               const SizedBox(height: 40),
-              // 👉 Este es el NUEVO BOTÓN para visitantes
               _botonOpcion(
                 context,
                 icon: Icons.emoji_people,
@@ -159,22 +156,20 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
   await Navigator.push(
     context,
     MaterialPageRoute(
-      builder:
-          (_) =>
-              CamaraGuiadaScreen(onFotoCapturada: (foto) => fotoTomada = foto),
+      builder: (_) =>
+          CamaraGuiadaScreen(onFotoCapturada: (foto) => fotoTomada = foto),
     ),
   );
 
   if (fotoTomada == null) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No se tomó ninguna foto.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se tomó ninguna foto.')),
+      );
     }
     return;
   }
 
-  // 🔥 ValueNotifier para mensaje dinámico
   final mensajeLoader = ValueNotifier<String>("Procesando rostro...");
 
   showDialog(
@@ -182,18 +177,14 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
     barrierDismissible: false,
     builder: (_) => LoaderAnimado(mensajeNotifier: mensajeLoader),
   );
-  await Future.microtask(() {}); // fuerza mostrar loader
+  await Future.microtask(() {});
 
   try {
-    // ⚡ 1. Procesamiento facial (¡modelo ya está inicializado en main!)
     mensajeLoader.value = "Procesando rostro...";
-
-    // Usa SIEMPRE el Singleton, NO vuelvas a inicializar aquí
     final generador = GeneradorPlantillaFacial();
     final resultadoGeneracion = await generador.generarDesdeImagen(fotoTomada!);
     final plantillaBase64 = resultadoGeneracion['plantilla'];
 
-    // ⚡ 2. Comparación local
     mensajeLoader.value = "Comparando rostro...";
     List<UsuarioLigero> usuarios = [];
     try {
@@ -212,28 +203,23 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
     if (plantillaBase64 != null) {
       plantillaCapturada = PlantillaFacial.fromBase64(plantillaBase64);
     }
-    final resultadoLocal =
-        plantillaCapturada != null
-            ? ComparadorFacialLigero.comparar(plantillaCapturada, usuarios)
-            : null;
+    final resultadoLocal = plantillaCapturada != null
+        ? ComparadorFacialLigero.comparar(plantillaCapturada, usuarios)
+        : null;
 
     if (resultadoLocal != null) {
-      // Si tienes lógica adicional aquí, puedes usarla
       print('⚠ Coincidencia local: ${resultadoLocal['usuario']?.cedula}');
     }
 
-    // ⚡ 3. Subida a Cloudinary (puedes hacerla en un Isolate si notas lag, pero generalmente aquí ya es rápido)
-    mensajeLoader.value = "Subiendo imagen a la nube...";
+    mensajeLoader.value = "Cargando imagen...";
     final imagenReducida = await UtilImagen.reducirImagen(fotoTomada!);
     final urlCloudinary = await UtilImagen.subirACloudinary(imagenReducida);
 
-    // ⚡ 4. Consulta en Face++ (esto depende de tu red)
-    mensajeLoader.value = "Verificando rostro en Face++...";
-    final resultadoFacePlus = await FacePlusService.verificarFaceDesdeUrl(
-      urlCloudinary ?? '',
-    );
+    mensajeLoader.value = "Cargando imagen...";
+    final resultadoFacePlus =
+        await FacePlusService.verificarFaceDesdeUrl(urlCloudinary ?? '');
 
-    if (context.mounted) Navigator.of(context).pop(); // Cierra loader
+    if (context.mounted) Navigator.of(context).pop();
     if (!context.mounted) return;
 
     if (resultadoFacePlus != null) {
@@ -242,46 +228,54 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
       if (cedulaDetectada == null || cedulaDetectada.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              '❌ El rostro no tiene una cédula asociada en Face++.',
-            ),
+            content: Text('❌ El rostro no tiene una cédula asociada en Face++.'),
           ),
         );
         return;
       }
 
-      // 5️⃣ Descargar datos del usuario
-      mensajeLoader.value = "Descargando datos del usuario...";
       final response = await http.get(
         Uri.parse(
           'https://spring-instasafe-441403171241.us-central1.run.app/api/usuarios/cedula/$cedulaDetectada',
         ),
       );
 
-      if (response.statusCode == 200) {
-        final usuario = jsonDecode(response.body);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        try {
+          final usuario = jsonDecode(response.body);
 
-        final datosUsuario = {
-          'id': usuario['id'],
-          'nombre': '${usuario['nombre']} ${usuario['apellido']}',
-          'email': usuario['correo'] ?? '',
-          'rol': usuario['id_rol']?['nombre'] ?? 'Desconocido',
-          'foto': usuario['foto'],
-          'cedula': usuario['cedula'],
-        };
+          final idRol = usuario['id_rol']?['id'] ?? 0;
+          if (idRol == 7) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Usuario no tiene rol asignado')),
+            );
+            return;
+          }
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => VerificacionResultadoScreen(datosUsuario: datosUsuario),
-          ),
-        );
+          final datosUsuario = {
+            'id': usuario['id'],
+            'nombre': '${usuario['nombre']} ${usuario['apellido']}',
+            'email': usuario['correo'] ?? '',
+            'rol': usuario['id_rol']?['nombre'] ?? 'Desconocido',
+            'foto': usuario['foto'],
+            'cedula': usuario['cedula'],
+          };
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  VerificacionResultadoScreen(datosUsuario: datosUsuario),
+            ),
+          );
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Usuario no tiene rol asignado1')),
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ Usuario no encontrado en la base de datos'),
-          ),
+          const SnackBar(content: Text('Usuario es visitante')),
         );
       }
     } else {
@@ -294,9 +288,9 @@ Future<void> tomarFotoYVerificar(BuildContext context) async {
   } catch (e) {
     if (context.mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('❌ Error inesperado: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Usuario no tiene rol asignado3')),
+      );
     }
   }
 }
